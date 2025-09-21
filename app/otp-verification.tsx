@@ -22,6 +22,11 @@ export default function OTPVerificationScreen() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Debug log parameters
+  React.useEffect(() => {
+    console.log("OTP Screen Parameters:", { phone, name, receivedOTP });
+  }, [phone, name, receivedOTP]);
+
   const handleVerifyOTP = async () => {
     if (!otp) {
       Alert.alert("Error", "Please enter the OTP");
@@ -29,7 +34,10 @@ export default function OTPVerificationScreen() {
     }
 
     if (!phone || !name) {
-      Alert.alert("Error", "Missing phone number or name. Please go back and try again.");
+      Alert.alert(
+        "Error",
+        "Missing phone number or name. Please go back and try again."
+      );
       return;
     }
 
@@ -83,13 +91,15 @@ export default function OTPVerificationScreen() {
           </View>
           <Text style={styles.title}>Verification</Text>
           <Text style={styles.subtitle}>Enter the 6-digit code sent to</Text>
-          <Text style={styles.phoneNumber}>{phone}</Text>
+          <Text style={styles.phoneNumber}>{phone || "Your phone"}</Text>
         </View>
 
         {/* Demo OTP Notice */}
         <View style={styles.demoContainer}>
           <Ionicons name="information-circle" size={20} color="#fd79a8" />
-          <Text style={styles.demoText}>Demo OTP: {receivedOTP}</Text>
+          <Text style={styles.demoText}>
+            Demo OTP: {receivedOTP || "123456"}
+          </Text>
         </View>
 
         {/* Form Section */}

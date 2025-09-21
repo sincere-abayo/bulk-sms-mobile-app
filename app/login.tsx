@@ -30,17 +30,20 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const response = await authService.register(phone, name);
+      console.log("Login response:", response);
+
       Alert.alert("Success", response.message, [
         {
           text: "OK",
-          onPress: () => router.push({
-            pathname: "/otp-verification",
-            params: {
-              phone: phone,
-              name: name,
-              otp: response.otp || "123456" // Use OTP from response or fallback
-            }
-          } as any),
+          onPress: () =>
+            router.push({
+              pathname: "/otp-verification",
+              params: {
+                phone: phone.trim(),
+                name: name.trim(),
+                otp: response.otp || "123456", // Use OTP from response or fallback
+              },
+            } as any),
         },
       ]);
     } catch (error: any) {
