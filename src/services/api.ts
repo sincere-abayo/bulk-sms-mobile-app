@@ -22,6 +22,21 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Handle network errors gracefully
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Check if it's a network error
+    if (!error.response && (error.code === 'NETWORK_ERROR' || error.message === 'Network Error')) {
+      // This will be caught by individual API calls and handled with offline warnings
+      throw new Error('OFFLINE');
+    }
+
+    // For other errors, pass them through
+    throw error;
+  }
+);
+
 export const authService = {
   register: async (phone: string) => {
     const response = await api.post('/auth/register', { phone });

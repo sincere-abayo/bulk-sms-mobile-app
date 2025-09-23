@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { NetworkProvider } from "../src/contexts/NetworkContext";
+import { OfflineWarning } from "../components/OfflineWarning";
 import "../global.css";
 
 export default function RootLayout() {
@@ -29,23 +31,26 @@ export default function RootLayout() {
   console.log("Is authenticated:", isAuthenticated); // Debug log
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="landing" options={{ headerShown: false }} />
-      <Stack.Screen name="login" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="otp_verification"
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="contacts"
-        options={{
-          title: "Contacts",
-          headerStyle: { backgroundColor: "#7c3aed" },
-          headerTintColor: "#ffffff",
-        }}
-      />
-      <Stack.Screen name="dashboard" />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
+    <NetworkProvider>
+      <OfflineWarning />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="landing" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="otp_verification"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="contacts"
+          options={{
+            title: "Contacts",
+            headerStyle: { backgroundColor: "#7c3aed" },
+            headerTintColor: "#ffffff",
+          }}
+        />
+        <Stack.Screen name="dashboard" />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </NetworkProvider>
   );
 }

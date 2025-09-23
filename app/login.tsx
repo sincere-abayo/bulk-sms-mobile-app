@@ -15,8 +15,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from "../src/services/api";
+import { useNetwork } from "../src/contexts/NetworkContext";
 
 export default function LoginScreen() {
+  const { isConnected, showOfflineWarning } = useNetwork();
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -56,8 +58,16 @@ export default function LoginScreen() {
         });
       }
     } catch (error: any) {
-      console.error("Login error:", error);
-      Alert.alert("Error", error.response?.data?.message || "Failed to process request. Please try again.");
+      if (error.message === 'OFFLINE') {
+        showOfflineWarning();
+        Alert.alert(
+          "Offline Mode",
+          "Login requires internet connection. Please check your connection and try again."
+        );
+      } else {
+        console.error("Login error:", error);
+        Alert.alert("Error", error.response?.data?.message || "Failed to process request. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }

@@ -16,6 +16,7 @@ import * as Contacts from "expo-contacts";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { authService } from "../src/services/api";
 import { databaseService } from "../src/services/database";
+import { useNetwork } from "../src/contexts/NetworkContext";
 
 interface Contact {
   id: string;
@@ -33,6 +34,7 @@ interface ImportableContact {
 }
 
 export default function ContactsScreen() {
+  const { isConnected, showOfflineWarning } = useNetwork();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -63,31 +65,45 @@ export default function ContactsScreen() {
       }
 
       // Then sync with server
-      const response = await authService.getContacts();
-      const serverContacts = response.contacts || [];
+      try {
+        const response = await authService.getContacts();
+        const serverContacts = response.contacts || [];
 
-      // Cache server contacts locally
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const userId = payload.userId;
+        // Cache server contacts locally
+        if (token) {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const userId = payload.userId;
 
-        const contactsToCache = serverContacts.map((contact: any) => ({
-          id: contact.id,
-          userId,
-          name: contact.name,
-          phone: contact.phone,
-          source: contact.source,
-          serverId: contact.id,
-          lastSynced: new Date().toISOString(),
-          createdAt: contact.createdAt,
-          updatedAt: contact.updatedAt,
-        }));
+          const contactsToCache = serverContacts.map((contact: any) => ({
+            id: contact.id,
+            userId,
+            name: contact.name,
+            phone: contact.phone,
+            source: contact.source,
+            serverId: contact.id,
+            lastSynced: new Date().toISOString(),
+            createdAt: contact.createdAt,
+            updatedAt: contact.updatedAt,
+          }));
 
-        await databaseService.saveContacts(userId, contactsToCache);
+          await databaseService.saveContacts(userId, contactsToCache);
+        }
+
+        // Update UI with server data
+        setContacts(serverContacts);
+      } catch (error: any) {
+        if (error.message === 'OFFLINE') {
+          // Show offline warning instead of error
+          showOfflineWarning();
+          console.log("Offline: Using cached contacts only");
+        } else {
+          console.error("Error syncing contacts:", error);
+          // If server fails but we have cache, keep showing cached data
+          if (contacts.length === 0) {
+            Alert.alert("Error", "Failed to load contacts");
+          }
+        }
       }
-
-      // Update UI with server data
-      setContacts(serverContacts);
     } catch (error) {
       console.error("Error loading contacts:", error);
       // If server fails but we have cache, keep showing cached data
@@ -137,7 +153,16 @@ export default function ContactsScreen() {
       loadContacts(); // Refresh the list
       Alert.alert("Success", "Contact added successfully");
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.error || "Failed to add contact");
+      if (error.message === 'OFFLINE') {
+        showOfflineWarning();
+        Alert.alert("Offline", "Contact saved locally. Will sync when online.");
+        // Still close modal and refresh (will show cached data)
+        setNewContact({ name: "", phone: "" });
+        setShowAddModal(false);
+        loadContacts();
+      } else {
+        Alert.alert("Error", error.response?.data?.error || "Failed to add contact");
+      }
     }
   };
 
@@ -166,7 +191,14 @@ export default function ContactsScreen() {
               loadContacts(); // Refresh the list
               Alert.alert("Success", "Contact deleted successfully");
             } catch (error: any) {
-              Alert.alert("Error", error.response?.data?.error || "Failed to delete contact");
+              if (error.message === 'OFFLINE') {
+                showOfflineWarning();
+                Alert.alert("Offline", "Contact deleted locally. Will sync when online.");
+                // Still refresh the list (will show cached data)
+                loadContacts();
+              } else {
+                Alert.alert("Error", error.response?.data?.error || "Failed to delete contact");
+              }
             }
           },
         },
@@ -322,10 +354,20 @@ export default function ContactsScreen() {
         `Successfully imported ${selectedContacts.length} contact${selectedContacts.length > 1 ? 's' : ''}!`
       );
     } catch (error: any) {
-      Alert.alert(
-        "Import Failed",
-        error.response?.data?.error || "Failed to import contacts"
-      );
+      if (error.message === 'OFFLINE') {
+        showOfflineWarning();
+        Alert.alert(
+          "Offline Import",
+          `Contacts saved locally. ${selectedContacts.length} contact${selectedContacts.length > 1 ? 's' : ''} will be synced when online.`
+        );
+        // Still refresh the list (will show cached data)
+        loadContacts();
+      } else {
+        Alert.alert(
+          "Import Failed",
+          error.response?.data?.error || "Failed to import contacts"
+        );
+      }
     } finally {
       setImporting(false);
     }
