@@ -36,6 +36,14 @@ export default function RootLayout() {
         name="otp_verification"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="contacts"
+        options={{
+          title: "Contacts",
+          headerStyle: { backgroundColor: "#7c3aed" },
+          headerTintColor: "#ffffff",
+        }}
+      />
       <Stack.Screen name="dashboard" />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>

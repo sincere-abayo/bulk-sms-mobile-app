@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface User {
@@ -49,98 +51,154 @@ export default function DashboardScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Bulk SMS</Text>
-      {user && (
-        <View style={styles.userInfo}>
-          <Text style={styles.userText}>Hello, {user.name}!</Text>
-          <Text style={styles.phoneText}>Phone: {user.phone}</Text>
+    <ScrollView className="flex-1 bg-gray-50">
+      {/* Header Section */}
+      <LinearGradient
+        colors={["#7c3aed", "#a855f7"]}
+        className="h-[35vh] justify-center items-center rounded-b-3xl"
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View className="items-center">
+          <View className="w-16 h-16 bg-white/20 rounded-full justify-center items-center mb-3">
+            <Ionicons name="person" size={32} color="#ffffff" />
+          </View>
+          <Text className="text-2xl font-bold text-white mb-1">Dashboard</Text>
+          {user && (
+            <Text className="text-white/80 text-center px-4">
+              Welcome back, {user.name}!
+            </Text>
+          )}
         </View>
-      )}
+      </LinearGradient>
 
-      <View style={styles.menuContainer}>
-        <TouchableOpacity style={styles.menuButton}>
-          <Text style={styles.menuButtonText}>Manage Contacts</Text>
-        </TouchableOpacity>
+      <View className="px-6 pt-6 pb-8">
+        {/* Stats Cards */}
+        <View className="mb-8">
+          <Text className="text-xl font-bold text-gray-900 mb-4">Your Statistics</Text>
+          <View className="flex-row justify-between">
+            <View className="bg-white rounded-2xl p-4 flex-1 mr-3 shadow-sm border border-gray-100">
+              <View className="flex-row items-center mb-2">
+                <View className="w-8 h-8 bg-blue-100 rounded-lg justify-center items-center mr-2">
+                  <Ionicons name="chatbubble" size={16} color="#3b82f6" />
+                </View>
+                <Text className="text-xs text-gray-600 font-medium">Sent</Text>
+              </View>
+              <Text className="text-2xl font-bold text-gray-900">1,247</Text>
+              <Text className="text-xs text-green-600 font-medium">+12% this month</Text>
+            </View>
 
-        <TouchableOpacity style={styles.menuButton}>
-          <Text style={styles.menuButtonText}>Send SMS</Text>
-        </TouchableOpacity>
+            <View className="bg-white rounded-2xl p-4 flex-1 mr-3 shadow-sm border border-gray-100">
+              <View className="flex-row items-center mb-2">
+                <View className="w-8 h-8 bg-green-100 rounded-lg justify-center items-center mr-2">
+                  <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+                </View>
+                <Text className="text-xs text-gray-600 font-medium">Delivered</Text>
+              </View>
+              <Text className="text-2xl font-bold text-gray-900">99.2%</Text>
+              <Text className="text-xs text-green-600 font-medium">+2% from last month</Text>
+            </View>
 
-        <TouchableOpacity style={styles.menuButton}>
-          <Text style={styles.menuButtonText}>Message History</Text>
-        </TouchableOpacity>
+            <View className="bg-white rounded-2xl p-4 flex-1 shadow-sm border border-gray-100">
+              <View className="flex-row items-center mb-2">
+                <View className="w-8 h-8 bg-purple-100 rounded-lg justify-center items-center mr-2">
+                  <Ionicons name="wallet" size={16} color="#9333ea" />
+                </View>
+                <Text className="text-xs text-gray-600 font-medium">Balance</Text>
+              </View>
+              <Text className="text-2xl font-bold text-gray-900">RWF 2,450</Text>
+              <Text className="text-xs text-gray-600 font-medium">≈ $1.85</Text>
+            </View>
+          </View>
+        </View>
 
-        <TouchableOpacity style={styles.menuButton}>
-          <Text style={styles.menuButtonText}>Account & Payments</Text>
+        {/* Quick Actions */}
+        <View className="mb-8">
+          <Text className="text-xl font-bold text-gray-900 mb-4">Quick Actions</Text>
+          <View className="gap-3">
+            <TouchableOpacity
+              className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"
+              onPress={() => router.push("/contacts")}
+            >
+              <View className="flex-row items-center">
+                <View className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl justify-center items-center mr-4">
+                  <Ionicons name="people" size={24} color="#ffffff" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-lg font-semibold text-gray-900">Manage Contacts</Text>
+                  <Text className="text-sm text-gray-600">Import and organize your contact lists</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <View className="flex-row items-center">
+                <View className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl justify-center items-center mr-4">
+                  <Ionicons name="send" size={24} color="#ffffff" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-lg font-semibold text-gray-900">Send SMS</Text>
+                  <Text className="text-sm text-gray-600">Create and send bulk messages</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <View className="flex-row items-center">
+                <View className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl justify-center items-center mr-4">
+                  <Ionicons name="time" size={24} color="#ffffff" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-lg font-semibold text-gray-900">Message History</Text>
+                  <Text className="text-sm text-gray-600">View sent messages and delivery reports</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <View className="flex-row items-center">
+                <View className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl justify-center items-center mr-4">
+                  <Ionicons name="card" size={24} color="#ffffff" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-lg font-semibold text-gray-900">Account & Payments</Text>
+                  <Text className="text-sm text-gray-600">Manage billing and payment methods</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Account Info */}
+        {user && (
+          <View className="bg-white rounded-2xl p-5 mb-8 shadow-sm border border-gray-100">
+            <Text className="text-lg font-bold text-gray-900 mb-3">Account Information</Text>
+            <View className="flex-row items-center mb-2">
+              <Ionicons name="person" size={16} color="#6b7280" />
+              <Text className="text-gray-600 ml-2">{user.name}</Text>
+            </View>
+            <View className="flex-row items-center">
+              <Ionicons name="call" size={16} color="#6b7280" />
+              <Text className="text-gray-600 ml-2">{user.phone}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Logout Button */}
+        <TouchableOpacity
+          onPress={handleLogout}
+          className="bg-red-500 rounded-2xl py-4 items-center shadow-sm"
+        >
+          <View className="flex-row items-center">
+            <Ionicons name="log-out" size={20} color="#ffffff" />
+            <Text className="text-white font-semibold text-base ml-2">Logout</Text>
+          </View>
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Logout</Text>
-      </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: "#f5f5f5",
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginTop: 50,
-    marginBottom: 30,
-    color: "#333",
-  },
-  userInfo: {
-    backgroundColor: "white",
-    borderRadius: 8,
-    padding: 20,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: "#ddd",
-  },
-  userText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 5,
-  },
-  phoneText: {
-    fontSize: 16,
-    color: "#666",
-  },
-  menuContainer: {
-    flex: 1,
-  },
-  menuButton: {
-    backgroundColor: "white",
-    borderRadius: 8,
-    padding: 20,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: "#ddd",
-  },
-  menuButtonText: {
-    fontSize: 16,
-    textAlign: "center",
-    color: "#333",
-  },
-  logoutButton: {
-    backgroundColor: "#ff4444",
-    borderRadius: 8,
-    padding: 15,
-    alignItems: "center",
-    marginTop: 20,
-  },
-  logoutButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-});

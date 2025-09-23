@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Use your computer's IP address instead of localhost for mobile testing
 // Replace with your actual IP address
-const API_BASE_URL = 'http://192.168.137.39:4000/api';
+const API_BASE_URL = 'http://192.168.137.100:4000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -30,6 +30,32 @@ export const authService = {
 
   verifyOTP: async (phone: string, otp: string, name?: string) => {
     const response = await api.post('/auth/verify-otp', { phone, otp, name });
+    return response.data;
+  },
+
+  // Contact Management
+  getContacts: async () => {
+    const response = await api.get('/auth/contacts');
+    return response.data;
+  },
+
+  createContact: async (contactData: { name: string; phone: string; source?: string }) => {
+    const response = await api.post('/auth/contacts', contactData);
+    return response.data;
+  },
+
+  updateContact: async (id: string, contactData: { name?: string; phone?: string }) => {
+    const response = await api.put(`/auth/contacts/${id}`, contactData);
+    return response.data;
+  },
+
+  deleteContact: async (id: string) => {
+    const response = await api.delete(`/auth/contacts/${id}`);
+    return response.data;
+  },
+
+  bulkCreateContacts: async (contacts: Array<{ name: string; phone: string; source?: string }>) => {
+    const response = await api.post('/auth/contacts/bulk', { contacts });
     return response.data;
   },
 };
