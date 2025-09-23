@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Use your computer's IP address instead of localhost for mobile testing
 // Replace with your actual IP address
-const API_BASE_URL = 'http://192.168.137.18:4000/api';
+const API_BASE_URL = 'http://192.168.137.39:4000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -23,12 +23,12 @@ api.interceptors.request.use(async (config) => {
 });
 
 export const authService = {
-  register: async (phone: string, name: string) => {
-    const response = await api.post('/auth/register', { phone, name });
+  register: async (phone: string) => {
+    const response = await api.post('/auth/register', { phone });
     return response.data;
   },
-  
-  verifyOTP: async (phone: string, otp: string, name: string) => {
+
+  verifyOTP: async (phone: string, otp: string, name?: string) => {
     const response = await api.post('/auth/verify-otp', { phone, otp, name });
     return response.data;
   },

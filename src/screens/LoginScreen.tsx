@@ -26,7 +26,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
     setLoading(true);
     try {
-      const response = await authService.register(phone, name);
+      const response = await authService.register(phone);
       Alert.alert("Success", response.message, [
         {
           text: "OK",

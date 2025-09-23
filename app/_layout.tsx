@@ -33,7 +33,7 @@ export default function RootLayout() {
       <Stack.Screen name="landing" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen
-        name="otp-verification"
+        name="otp_verification"
         options={{ headerShown: false }}
       />
       <Stack.Screen name="dashboard" />
