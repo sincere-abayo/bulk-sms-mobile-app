@@ -13,7 +13,15 @@ export default function DashboardScreen() {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    loadUserData();
+    const checkAuth = async () => {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+      loadUserData();
+    };
+    checkAuth();
   }, []);
 
   const loadUserData = async () => {
