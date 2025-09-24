@@ -148,6 +148,22 @@ export default function DashboardScreen() {
               </View>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"
+              onPress={() => router.push("/drafts")}
+            >
+              <View className="flex-row items-center">
+                <View className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl justify-center items-center mr-4">
+                  <Ionicons name="document-text" size={24} color="#ffffff" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-lg font-semibold text-gray-900">Saved Drafts</Text>
+                  <Text className="text-sm text-gray-600">Load and manage your message drafts</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
               <View className="flex-row items-center">
                 <View className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl justify-center items-center mr-4">

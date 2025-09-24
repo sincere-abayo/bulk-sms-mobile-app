@@ -12,7 +12,7 @@ import {
   Platform,
   StatusBar,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -27,12 +27,14 @@ interface SelectedContact {
 
 export default function ComposeScreen() {
   const { isConnected, showOfflineWarning } = useNetwork();
+  const params = useLocalSearchParams();
   const [message, setMessage] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<SelectedContact[]>([]);
   const [availableContacts, setAvailableContacts] = useState<CachedContact[]>([]);
   const [showContactModal, setShowContactModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string>("");
+  const [loadedDraftTitle, setLoadedDraftTitle] = useState<string>("");
 
   // SMS Constants
   const SMS_COST_PER_MESSAGE = 15; // RWF
@@ -41,6 +43,56 @@ export default function ComposeScreen() {
   useEffect(() => {
     loadUserAndContacts();
   }, []);
+
+  // Load draft - either specific draftId or latest draft by default
+  useEffect(() => {
+    const loadDraft = async () => {
+      const draftId = params.draftId as string;
+
+      if (userId && availableContacts.length > 0) {
+        try {
+          const drafts = await databaseService.getDraftMessages(userId);
+
+          if (draftId) {
+            // Load specific draft
+            const draft = drafts.find(d => d.id === draftId);
+            if (draft) {
+              loadDraftContent(draft);
+              Alert.alert("Draft Loaded", `"${draft.title}" has been loaded successfully`);
+            }
+          } else if (drafts.length > 0) {
+            // Load latest draft by default
+            const latestDraft = drafts[0]; // Already sorted by updatedAt DESC
+            loadDraftContent(latestDraft);
+            // Show subtle notification without alert
+            console.log(`Auto-loaded latest draft: ${latestDraft.title}`);
+          }
+        } catch (error) {
+          console.error('Error loading draft:', error);
+          Alert.alert("Error", "Failed to load draft");
+        }
+      }
+    };
+
+    loadDraft();
+  }, [userId, availableContacts, params.draftId]);
+
+  const loadDraftContent = (draft: any) => {
+    // Load draft content
+    setMessage(draft.content);
+    setLoadedDraftTitle(draft.title);
+
+    // Load selected contacts from draft
+    const contactIds = JSON.parse(draft.contactIds);
+    const draftContacts = availableContacts.filter(contact =>
+      contactIds.includes(contact.id)
+    );
+    setSelectedContacts(draftContacts.map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+    })));
+  };
 
   const loadUserAndContacts = async () => {
     try {
@@ -133,6 +185,7 @@ export default function ComposeScreen() {
       // Reset form
       setMessage("");
       setSelectedContacts([]);
+      setLoadedDraftTitle("");
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -149,8 +202,11 @@ export default function ComposeScreen() {
     }
 
     try {
+      // Check if we have a draftId from params (editing existing draft)
+      const draftId = params.draftId as string;
+
       const draft = {
-        id: Date.now().toString(),
+        id: draftId || Date.now().toString(),
         userId,
         title: `Draft ${new Date().toLocaleDateString()}`,
         content: message.trim(),
@@ -161,7 +217,11 @@ export default function ComposeScreen() {
       };
 
       await databaseService.saveDraftMessage(draft);
-      Alert.alert("Success", "Draft saved successfully!");
+
+      // Clear the loaded draft title since we've saved/updated
+      setLoadedDraftTitle("");
+
+      Alert.alert("Success", draftId ? "Draft updated successfully!" : "Draft saved successfully!");
     } catch (error) {
       console.error('Error saving draft:', error);
       Alert.alert("Error", "Failed to save draft");
@@ -194,15 +254,32 @@ export default function ComposeScreen() {
             <Ionicons name="arrow-back" size={20} color="#ffffff" />
           </TouchableOpacity>
 
-          <Text className="text-xl font-bold text-white">Compose Message</Text>
+          <View className="flex-1">
+            <Text className="text-xl font-bold text-white">Compose Message</Text>
+            {loadedDraftTitle && (
+              <Text className="text-xs text-white/80 mt-1">
+                Loaded: {loadedDraftTitle}
+              </Text>
+            )}
+          </View>
 
-          <TouchableOpacity
-            onPress={saveDraft}
-            className="w-10 h-10 bg-white/20 rounded-full justify-center items-center"
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="save" size={18} color="#ffffff" />
-          </TouchableOpacity>
+          <View className="flex-row space-x-2">
+            <TouchableOpacity
+              onPress={() => router.push("/drafts")}
+              className="w-10 h-10 bg-white/20 rounded-full justify-center items-center"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="document-text" size={18} color="#ffffff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={saveDraft}
+              className="w-10 h-10 bg-white/20 rounded-full justify-center items-center"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="save" size={18} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
