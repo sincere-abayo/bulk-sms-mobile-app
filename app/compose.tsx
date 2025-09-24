@@ -38,6 +38,7 @@ export default function ComposeScreen() {
   const [userId, setUserId] = useState<string>("");
   const [loadedDraftTitle, setLoadedDraftTitle] = useState<string>("");
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [showTips, setShowTips] = useState(false);
 
   // Auto-save refs
   const autoSaveTimeoutRef = useRef<number | null>(null);
@@ -442,7 +443,13 @@ export default function ComposeScreen() {
 
         {/* Message Input */}
         <View className="px-6 py-4">
-          <Text className="text-lg font-semibold text-gray-900 mb-3">Message</Text>
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-lg font-semibold text-gray-900">Message</Text>
+            <View className="flex-row items-center bg-green-50 px-2 py-1 rounded-full">
+              <Ionicons name="shield-checkmark" size={12} color="#16a34a" />
+              <Text className="text-xs text-green-700 ml-1 font-medium">Auto-saved</Text>
+            </View>
+          </View>
 
           <View className="bg-gray-50 border border-gray-200 rounded-xl p-4">
             <TextInput
@@ -476,6 +483,80 @@ export default function ComposeScreen() {
               </View>
             </View>
           </View>
+        </View>
+
+        {/* Draft Tips */}
+        <View className="px-6 pb-4">
+          <TouchableOpacity
+            onPress={() => setShowTips(!showTips)}
+            className="flex-row items-center justify-center py-3 bg-blue-50 rounded-xl border border-blue-200"
+          >
+            <Ionicons
+              name="information-circle"
+              size={20}
+              color="#3b82f6"
+            />
+            <Text className="text-blue-700 font-medium ml-2">
+              Draft Tips & Shortcuts
+            </Text>
+            <Ionicons
+              name={showTips ? "chevron-up" : "chevron-down"}
+              size={16}
+              color="#3b82f6"
+              style={{ marginLeft: 8 }}
+            />
+          </TouchableOpacity>
+
+          {showTips && (
+            <View className="mt-3 bg-blue-50 rounded-xl p-4 border border-blue-200">
+              <Text className="text-sm font-semibold text-blue-900 mb-3">
+                💡 Draft Management Tips
+              </Text>
+
+              <View className="space-y-3">
+                <View className="flex-row items-start">
+                  <View className="w-6 h-6 bg-green-100 rounded-full justify-center items-center mr-3 mt-0.5">
+                    <Ionicons name="checkmark-circle" size={14} color="#16a34a" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-gray-900">Auto-Save Active</Text>
+                    <Text className="text-xs text-gray-600">Your message is automatically saved every 2 seconds</Text>
+                  </View>
+                </View>
+
+                <View className="flex-row items-start">
+                  <Ionicons name="save" size={16} color="#7c3aed" style={{ marginRight: 11, marginTop: 2 }} />
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-gray-900">Manual Save</Text>
+                    <Text className="text-xs text-gray-600">Tap the save button to instantly save your draft</Text>
+                  </View>
+                </View>
+
+                <View className="flex-row items-start">
+                  <Ionicons name="document-text" size={16} color="#f59e0b" style={{ marginRight: 11, marginTop: 2 }} />
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-gray-900">Load Drafts</Text>
+                    <Text className="text-xs text-gray-600">Access saved drafts from the drafts button in header</Text>
+                  </View>
+                </View>
+
+                <View className="flex-row items-start">
+                  <Ionicons name="shield-checkmark" size={16} color="#dc2626" style={{ marginRight: 11, marginTop: 2 }} />
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-gray-900">Data Protection</Text>
+                    <Text className="text-xs text-gray-600">Drafts are saved locally and sync when online</Text>
+                  </View>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => router.push("/drafts")}
+                className="mt-4 bg-purple-600 rounded-lg py-2 items-center"
+              >
+                <Text className="text-white font-medium text-sm">View All Drafts</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Send Button */}
