@@ -164,7 +164,10 @@ export default function DashboardScreen() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <TouchableOpacity
+              className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"
+              onPress={() => router.push("/history")}
+            >
               <View className="flex-row items-center">
                 <View className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl justify-center items-center mr-4">
                   <Ionicons name="time" size={24} color="#ffffff" />

@@ -75,8 +75,19 @@ export const authService = {
   },
 
   // SMS Sending
-  sendSMS: async (message: string, recipients: Array<{ name: string; phone: string }>) => {
+  sendSMS: async (message: string, recipients: Array<{ name: string; phone: string; contactId?: string }>) => {
     const response = await api.post('/auth/send-sms', { message, recipients });
+    return response.data;
+  },
+
+  // Message History
+  getMessageHistory: async (page: number = 1, limit: number = 20) => {
+    const response = await api.get(`/auth/messages?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  getMessageDetails: async (messageId: string) => {
+    const response = await api.get(`/auth/messages/${messageId}`);
     return response.data;
   },
 };
