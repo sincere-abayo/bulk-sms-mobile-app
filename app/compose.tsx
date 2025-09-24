@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  AppState,
+  AppStateStatus,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -35,6 +37,13 @@ export default function ComposeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string>("");
   const [loadedDraftTitle, setLoadedDraftTitle] = useState<string>("");
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+
+  // Auto-save refs
+  const autoSaveTimeoutRef = useRef<number | null>(null);
+  const appStateRef = useRef(AppState.currentState);
+  const lastSavedContentRef = useRef<string>("");
+  const lastSavedContactsRef = useRef<string>("");
 
   // SMS Constants
   const SMS_COST_PER_MESSAGE = 15; // RWF
@@ -43,6 +52,97 @@ export default function ComposeScreen() {
   useEffect(() => {
     loadUserAndContacts();
   }, []);
+
+  // Auto-save functionality
+  const performAutoSave = useCallback(async () => {
+    if (!userId || (!message.trim() && selectedContacts.length === 0)) {
+      return; // Nothing to save
+    }
+
+    // Check if content has actually changed
+    const currentContent = message.trim();
+    const currentContacts = JSON.stringify(selectedContacts.map(c => c.id));
+
+    if (currentContent === lastSavedContentRef.current &&
+        currentContacts === lastSavedContactsRef.current) {
+      return; // No changes
+    }
+
+    try {
+      setIsAutoSaving(true);
+
+      const draftId = params.draftId as string || `auto-${Date.now()}`;
+
+      const draft = {
+        id: draftId,
+        userId,
+        title: loadedDraftTitle || `Auto-saved ${new Date().toLocaleDateString()}`,
+        content: currentContent,
+        recipientCount: selectedContacts.length,
+        contactIds: currentContacts,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await databaseService.saveDraftMessage(draft);
+
+      // Update last saved refs
+      lastSavedContentRef.current = currentContent;
+      lastSavedContactsRef.current = currentContacts;
+
+      console.log('Auto-saved draft');
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+    } finally {
+      setIsAutoSaving(false);
+    }
+  }, [userId, message, selectedContacts, params.draftId, loadedDraftTitle]);
+
+  // Debounced auto-save on content changes
+  useEffect(() => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      performAutoSave();
+    }, 2000); // Auto-save after 2 seconds of inactivity
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [message, selectedContacts, performAutoSave]);
+
+  // App state listener for background saves
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (appStateRef.current.match(/active/) && nextAppState.match(/inactive|background/)) {
+        // App going to background - save immediately
+        if (autoSaveTimeoutRef.current) {
+          clearTimeout(autoSaveTimeoutRef.current);
+        }
+        performAutoSave();
+      }
+      appStateRef.current = nextAppState;
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [performAutoSave]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        // Final save on unmount
+        performAutoSave();
+      }
+    };
+  }, [performAutoSave]);
 
   // Load draft - either specific draftId or latest draft by default
   useEffect(() => {
@@ -92,6 +192,10 @@ export default function ComposeScreen() {
       name: c.name,
       phone: c.phone,
     })));
+
+    // Initialize auto-save refs to prevent immediate auto-save
+    lastSavedContentRef.current = draft.content;
+    lastSavedContactsRef.current = JSON.stringify(contactIds);
   };
 
   const loadUserAndContacts = async () => {
@@ -187,6 +291,10 @@ export default function ComposeScreen() {
       setSelectedContacts([]);
       setLoadedDraftTitle("");
 
+      // Clear auto-save refs
+      lastSavedContentRef.current = "";
+      lastSavedContactsRef.current = "";
+
     } catch (error) {
       console.error('Error sending message:', error);
       Alert.alert("Error", "Failed to send message. Please try again.");
@@ -204,19 +312,25 @@ export default function ComposeScreen() {
     try {
       // Check if we have a draftId from params (editing existing draft)
       const draftId = params.draftId as string;
+      const currentContent = message.trim();
+      const currentContacts = JSON.stringify(selectedContacts.map(c => c.id));
 
       const draft = {
         id: draftId || Date.now().toString(),
         userId,
         title: `Draft ${new Date().toLocaleDateString()}`,
-        content: message.trim(),
+        content: currentContent,
         recipientCount: selectedContacts.length,
-        contactIds: JSON.stringify(selectedContacts.map(c => c.id)),
+        contactIds: currentContacts,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
       await databaseService.saveDraftMessage(draft);
+
+      // Update auto-save refs to prevent immediate auto-save
+      lastSavedContentRef.current = currentContent;
+      lastSavedContactsRef.current = currentContacts;
 
       // Clear the loaded draft title since we've saved/updated
       setLoadedDraftTitle("");
@@ -260,6 +374,12 @@ export default function ComposeScreen() {
               <Text className="text-xs text-white/80 mt-1">
                 Loaded: {loadedDraftTitle}
               </Text>
+            )}
+            {isAutoSaving && (
+              <View className="flex-row items-center mt-1">
+                <Ionicons name="cloud-upload" size={12} color="#ffffff" />
+                <Text className="text-xs text-white/80 ml-1">Saving...</Text>
+              </View>
             )}
           </View>
 
