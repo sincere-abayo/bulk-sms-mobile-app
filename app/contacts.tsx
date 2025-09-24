@@ -136,23 +136,46 @@ export default function ContactsScreen() {
       const updatedResponse = await authService.getContacts();
       const updatedServerContacts = updatedResponse.contacts || [];
 
-      // Update local cache with complete server data
-      const contactsToCache = updatedServerContacts.map((contact: any) => ({
+      // Get remaining unsynced contacts (those that failed to sync)
+      const remainingCachedContacts =
+        await databaseService.getCachedContacts(userId);
+      const remainingUnsyncedContacts = remainingCachedContacts.filter(
+        (cached) => !cached.lastSynced // Still not synced (failed to sync above)
+      );
+
+      // Merge server contacts with remaining unsynced contacts
+      const allContacts = [
+        ...updatedServerContacts,
+        ...remainingUnsyncedContacts.map((contact) => ({
+          id: contact.id,
+          name: contact.name,
+          phone: contact.phone,
+          source: contact.source,
+          createdAt: contact.createdAt,
+        })),
+      ];
+
+      // Update local cache with merged data (preserving unsynced contacts)
+      const contactsToCache = allContacts.map((contact: any) => ({
         id: contact.id,
         userId,
         name: contact.name,
         phone: contact.phone,
         source: contact.source,
         serverId: contact.id,
-        lastSynced: new Date().toISOString(),
+        lastSynced:
+          contact.id.startsWith("local-") ||
+          contact.id.startsWith("import-offline-")
+            ? undefined // Keep as unsynced for local contacts
+            : new Date().toISOString(), // Mark server contacts as synced
         createdAt: contact.createdAt,
-        updatedAt: contact.updatedAt,
+        updatedAt: contact.updatedAt || new Date().toISOString(),
       }));
 
       await databaseService.saveContacts(userId, contactsToCache);
 
       console.log("Contacts synced successfully");
-      return updatedServerContacts;
+      return allContacts;
     } catch (error) {
       throw error;
     } finally {
@@ -493,27 +516,27 @@ export default function ContactsScreen() {
       if (error.message === "OFFLINE") {
         showOfflineWarning();
 
-        // Save contacts locally when offline
+        // Save contacts locally when offline - APPEND, don't replace
         const token = await AsyncStorage.getItem("authToken");
         if (token) {
           const payload = JSON.parse(atob(token.split(".")[1]));
           const userId = payload.userId;
 
-          const contactsToCache = selectedContacts.map((contact, index) => ({
-            id: `import-offline-${Date.now()}-${index}`,
-            userId,
-            name: contact.name,
-            phone: contact.phone,
-            source: "phonebook",
-            serverId: undefined, // Will be set after sync
-            lastSynced: undefined, // Mark as not synced
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }));
-
-          await databaseService.saveContacts(userId, contactsToCache);
-
-          await databaseService.saveContacts(userId, contactsToCache);
+          // Add each contact individually to avoid overwriting existing ones
+          for (let i = 0; i < selectedContacts.length; i++) {
+            const contact = selectedContacts[i];
+            await databaseService.addCachedContact({
+              id: `import-offline-${Date.now()}-${i}`,
+              userId,
+              name: contact.name,
+              phone: contact.phone,
+              source: "phonebook",
+              serverId: undefined, // Will be set after sync
+              lastSynced: undefined, // Mark as not synced
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
         }
 
         Alert.alert(
