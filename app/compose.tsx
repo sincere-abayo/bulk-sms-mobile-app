@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { databaseService, type CachedContact } from "../src/services/database";
 import { useNetwork } from "../src/contexts/NetworkContext";
+import { authService } from "../src/services/api";
 
 interface SelectedContact {
   id: string;
@@ -39,6 +40,9 @@ export default function ComposeScreen() {
   const [loadedDraftTitle, setLoadedDraftTitle] = useState<string>("");
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [showTips, setShowTips] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'mobile' | 'card'>('mobile');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Auto-save refs
   const autoSaveTimeoutRef = useRef<number | null>(null);
@@ -253,6 +257,29 @@ export default function ComposeScreen() {
       return;
     }
 
+    // Show payment modal instead of sending directly
+    setShowPaymentModal(true);
+  };
+
+  const processPaymentAndSend = async () => {
+    setIsProcessingPayment(true);
+
+    try {
+      // Simulate payment processing (fake payment)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // After "payment" success, send the SMS
+      await sendSMSAfterPayment();
+    } catch (error) {
+      console.error('Payment failed:', error);
+      Alert.alert("Payment Failed", "Payment processing failed. Please try again.");
+    } finally {
+      setIsProcessingPayment(false);
+      setShowPaymentModal(false);
+    }
+  };
+
+  const sendSMSAfterPayment = async () => {
     if (!isConnected) {
       showOfflineWarning();
       Alert.alert(
@@ -263,28 +290,15 @@ export default function ComposeScreen() {
 
     setIsLoading(true);
     try {
-      const messageData = {
-        id: Date.now().toString(),
-        userId,
-        messageId: Date.now().toString(),
-        contactIds: JSON.stringify(selectedContacts.map(c => c.id)),
-        message: message.trim(),
-        status: 'pending' as 'pending' | 'sending' | 'completed' | 'failed',
-        priority: 1,
-        scheduledAt: undefined,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        errorMessage: undefined,
-      };
-
-      // Queue the message for sending
-      await databaseService.queueBatch(messageData);
+      // Send SMS via API
+      const result = await authService.sendSMS(
+        message.trim(),
+        selectedContacts.map(c => ({ name: c.name, phone: c.phone }))
+      );
 
       Alert.alert(
         "Success",
-        isConnected
-          ? "Message queued for sending!"
-          : "Message saved offline. Will be sent when online."
+        `Message sent to ${result.sent} recipients!${result.failed > 0 ? ` (${result.failed} failed)` : ''}`
       );
 
       // Reset form
@@ -295,10 +309,33 @@ export default function ComposeScreen() {
       // Clear auto-save refs
       lastSavedContentRef.current = "";
       lastSavedContactsRef.current = "";
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
-      Alert.alert("Error", "Failed to send message. Please try again.");
+      if (error.message === 'OFFLINE') {
+        // Fallback to offline queuing if API fails due to network
+        try {
+          const messageData = {
+            id: Date.now().toString(),
+            userId,
+            messageId: Date.now().toString(),
+            contactIds: JSON.stringify(selectedContacts.map(c => c.id)),
+            message: message.trim(),
+            status: 'pending' as 'pending' | 'sending' | 'completed' | 'failed',
+            priority: 1,
+            scheduledAt: undefined,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            errorMessage: undefined,
+          };
+
+          await databaseService.queueBatch(messageData);
+          Alert.alert("Success", "Message queued offline. Will be sent when online.");
+        } catch (offlineError) {
+          Alert.alert("Error", "Failed to queue message offline.");
+        }
+      } else {
+        Alert.alert("Error", error.response?.data?.error || "Failed to send message. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -720,6 +757,166 @@ export default function ComposeScreen() {
               </View>
             }
           />
+        </View>
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal
+        visible={showPaymentModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPaymentModal(false)}
+      >
+        <View className="flex-1 bg-white">
+          {/* Payment Header */}
+          <LinearGradient
+            colors={["#7c3aed", "#a855f7"]}
+            className="h-[15vh] justify-end pb-4"
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <View className="flex-row items-center justify-between px-6">
+              <TouchableOpacity
+                onPress={() => setShowPaymentModal(false)}
+                className="w-10 h-10 bg-white/20 rounded-full justify-center items-center"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={20} color="#ffffff" />
+              </TouchableOpacity>
+
+              <View className="flex-1 items-center">
+                <Text className="text-xl font-bold text-white">Complete Payment</Text>
+                <Text className="text-white/80 text-sm">Secure SMS delivery</Text>
+              </View>
+
+              <View className="w-10" />
+            </View>
+          </LinearGradient>
+
+          <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
+            {/* Order Summary */}
+            <View className="bg-gray-50 rounded-xl p-4 mb-6">
+              <Text className="text-lg font-bold text-gray-900 mb-4">Order Summary</Text>
+
+              <View className="space-y-3">
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600">Recipients</Text>
+                  <Text className="text-gray-900 font-medium">{selectedContacts.length}</Text>
+                </View>
+
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600">SMS Count</Text>
+                  <Text className="text-gray-900 font-medium">{smsCount}</Text>
+                </View>
+
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600">Rate per SMS</Text>
+                  <Text className="text-gray-900 font-medium">{SMS_COST_PER_MESSAGE} RWF</Text>
+                </View>
+
+                <View className="border-t border-gray-300 pt-3 mt-3">
+                  <View className="flex-row justify-between">
+                    <Text className="text-lg font-bold text-gray-900">Total Amount</Text>
+                    <Text className="text-lg font-bold text-purple-600">{totalCost} RWF</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Payment Method Selection */}
+            <View className="mb-6">
+              <Text className="text-lg font-bold text-gray-900 mb-4">Payment Method</Text>
+
+              <TouchableOpacity
+                onPress={() => setPaymentMethod('mobile')}
+                className={`rounded-xl p-4 border-2 mb-3 ${
+                  paymentMethod === 'mobile'
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
+                <View className="flex-row items-center">
+                  <View className={`w-5 h-5 rounded-full border-2 mr-3 ${
+                    paymentMethod === 'mobile'
+                      ? 'border-purple-500 bg-purple-500'
+                      : 'border-gray-300'
+                  }`}>
+                    {paymentMethod === 'mobile' && (
+                      <Ionicons name="checkmark" size={12} color="#ffffff" />
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-semibold text-gray-900">Mobile Money</Text>
+                    <Text className="text-sm text-gray-600">MTN Mobile Money, Airtel Money</Text>
+                  </View>
+                  <Ionicons name="phone-portrait" size={24} color="#6b7280" />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setPaymentMethod('card')}
+                className={`rounded-xl p-4 border-2 ${
+                  paymentMethod === 'card'
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
+                <View className="flex-row items-center">
+                  <View className={`w-5 h-5 rounded-full border-2 mr-3 ${
+                    paymentMethod === 'card'
+                      ? 'border-purple-500 bg-purple-500'
+                      : 'border-gray-300'
+                  }`}>
+                    {paymentMethod === 'card' && (
+                      <Ionicons name="checkmark" size={12} color="#ffffff" />
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-semibold text-gray-900">Credit/Debit Card</Text>
+                    <Text className="text-sm text-gray-600">Visa, Mastercard, American Express</Text>
+                  </View>
+                  <Ionicons name="card" size={24} color="#6b7280" />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Security Notice */}
+            <View className="bg-green-50 rounded-xl p-4 mb-6 border border-green-200">
+              <View className="flex-row items-start">
+                <Ionicons name="shield-checkmark" size={20} color="#16a34a" />
+                <View className="ml-3 flex-1">
+                  <Text className="font-semibold text-green-900 mb-1">Secure Payment</Text>
+                  <Text className="text-sm text-green-700">
+                    Your payment information is encrypted and secure. SMS delivery is guaranteed upon successful payment.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Pay Button */}
+            <TouchableOpacity
+              onPress={processPaymentAndSend}
+              disabled={isProcessingPayment}
+              className="mb-8"
+            >
+              <LinearGradient
+                colors={isProcessingPayment ? ["#d1d5db", "#9ca3af"] : ["#7c3aed", "#a855f7"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                className="rounded-xl py-4 items-center"
+              >
+                <Text className={`font-bold text-lg ${
+                  isProcessingPayment ? 'text-gray-500' : 'text-white'
+                }`}>
+                  {isProcessingPayment ? "Processing Payment..." : `Pay ${totalCost} RWF & Send`}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <Text className="text-xs text-gray-500 text-center mb-4">
+              By proceeding, you agree to our terms of service and payment will be processed securely.
+            </Text>
+          </ScrollView>
         </View>
       </Modal>
     </KeyboardAvoidingView>

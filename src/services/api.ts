@@ -73,6 +73,12 @@ export const authService = {
     const response = await api.post('/auth/contacts/bulk', { contacts });
     return response.data;
   },
+
+  // SMS Sending
+  sendSMS: async (message: string, recipients: Array<{ name: string; phone: string }>) => {
+    const response = await api.post('/auth/send-sms', { message, recipients });
+    return response.data;
+  },
 };
 
 export default api;
