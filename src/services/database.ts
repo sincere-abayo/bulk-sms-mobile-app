@@ -184,6 +184,18 @@ class DatabaseService {
     }
   }
 
+  async updateContactServerId(userId: string, localId: string, serverId: string): Promise<void> {
+    try {
+      await this.db.runAsync(
+        'UPDATE cached_contacts SET serverId = ?, lastSynced = ? WHERE userId = ? AND id = ?',
+        [serverId, new Date().toISOString(), userId, localId]
+      );
+    } catch (error) {
+      console.error('Error updating contact server ID:', error);
+      throw error;
+    }
+  }
+
   // Draft Messages Methods
   async saveDraftMessage(draft: DraftMessage): Promise<void> {
     try {

@@ -132,13 +132,16 @@ export default function DashboardScreen() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <TouchableOpacity
+              className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"
+              onPress={() => router.push("/compose")}
+            >
               <View className="flex-row items-center">
                 <View className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl justify-center items-center mr-4">
                   <Ionicons name="send" size={24} color="#ffffff" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-lg font-semibold text-gray-900">Send SMS</Text>
+                  <Text className="text-lg font-semibold text-gray-900">Compose Message</Text>
                   <Text className="text-sm text-gray-600">Create and send bulk messages</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
