@@ -1,15 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   Animated,
   Dimensions,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNetwork } from '../src/contexts/NetworkContext';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useNetwork } from "../src/contexts/NetworkContext";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 export const OfflineWarning: React.FC = () => {
   const { isConnected, isWarningVisible, hideOfflineWarning } = useNetwork();
@@ -49,7 +49,7 @@ export const OfflineWarning: React.FC = () => {
   return (
     <Animated.View
       style={{
-        position: 'absolute',
+        position: "absolute",
         top: 0,
         left: 0,
         right: 0,
@@ -57,44 +57,52 @@ export const OfflineWarning: React.FC = () => {
         transform: [{ translateY: slideAnim }],
       }}
     >
-      <View style={{
-        backgroundColor: '#dc2626',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        paddingTop: 50, // Account for status bar
-        flexDirection: 'row',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 5,
-      }}>
-        <View style={{
-          width: 20,
-          height: 20,
-          borderRadius: 10,
-          backgroundColor: 'rgba(255,255,255,0.2)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          marginRight: 12,
-        }}>
+      <View
+        style={{
+          backgroundColor: "#dc2626",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          paddingTop: 50, // Account for status bar
+          flexDirection: "row",
+          alignItems: "center",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 5,
+        }}
+      >
+        <View
+          style={{
+            width: 20,
+            height: 20,
+            borderRadius: 10,
+            backgroundColor: "rgba(255,255,255,0.2)",
+            justifyContent: "center",
+            alignItems: "center",
+            marginRight: 12,
+          }}
+        >
           <Ionicons name="cloud-offline" size={12} color="#ffffff" />
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={{
-            color: '#ffffff',
-            fontSize: 14,
-            fontWeight: '600',
-            marginBottom: 2,
-          }}>
+          <Text
+            style={{
+              color: "#ffffff",
+              fontSize: 14,
+              fontWeight: "600",
+              marginBottom: 2,
+            }}
+          >
             You're Offline
           </Text>
-          <Text style={{
-            color: 'rgba(255,255,255,0.9)',
-            fontSize: 12,
-          }}>
+          <Text
+            style={{
+              color: "rgba(255,255,255,0.9)",
+              fontSize: 12,
+            }}
+          >
             Sending messages and login require internet connection
           </Text>
         </View>
