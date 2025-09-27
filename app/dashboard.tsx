@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { authService } from "../src/services/api";
 
 interface User {
   id: string;
@@ -11,8 +12,30 @@ interface User {
   name: string;
 }
 
+interface Statistics {
+  totalSent: number;
+  deliveryRate: number;
+  totalContacts: number;
+  totalCost: number;
+  sentGrowth: number;
+  balance: number;
+  currency: string;
+  usdEquivalent: number;
+  thisMonth: {
+    sent: number;
+    cost: number;
+  };
+  allTime: {
+    messages: number;
+    recipients: number;
+    failed: number;
+  };
+}
+
 export default function DashboardScreen() {
   const [user, setUser] = useState<User | null>(null);
+  const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -22,6 +45,7 @@ export default function DashboardScreen() {
         return;
       }
       loadUserData();
+      loadStatistics();
     };
     checkAuth();
   }, []);
@@ -34,6 +58,31 @@ export default function DashboardScreen() {
       }
     } catch (error) {
       console.error("Error loading user data:", error);
+    }
+  };
+
+  const loadStatistics = async () => {
+    try {
+      setLoadingStats(true);
+      const stats = await authService.getStatistics();
+      setStatistics(stats);
+    } catch (error) {
+      console.error("Error loading statistics:", error);
+      // Set default statistics if API fails
+      setStatistics({
+        totalSent: 0,
+        deliveryRate: 0,
+        totalContacts: 0,
+        totalCost: 0,
+        sentGrowth: 0,
+        balance: 10000,
+        currency: 'RWF',
+        usdEquivalent: 7.52,
+        thisMonth: { sent: 0, cost: 0 },
+        allTime: { messages: 0, recipients: 0, failed: 0 }
+      });
+    } finally {
+      setLoadingStats(false);
     }
   };
 
@@ -55,11 +104,16 @@ export default function DashboardScreen() {
       {/* Header Section */}
       <LinearGradient
         colors={["#7c3aed", "#a855f7"]}
-        className="h-[35vh] justify-center items-center rounded-b-3xl"
+        className="h-[17vh] justify-center items-center rounded-b-3xl"
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <View className="items-center">
+        <View className="items-center ">
+          {/* App Name Added Here */}
+          <Text className="text-base font-semibold text-white/80 mb-2">
+            BULK SMS PRO.
+          </Text>
+
           <View className="w-16 h-16 bg-white/20 rounded-full justify-center items-center mb-3">
             <Ionicons name="person" size={32} color="#ffffff" />
           </View>
@@ -84,8 +138,14 @@ export default function DashboardScreen() {
                 </View>
                 <Text className="text-xs text-gray-600 font-medium">Sent</Text>
               </View>
-              <Text className="text-2xl font-bold text-gray-900">1,247</Text>
-              <Text className="text-xs text-green-600 font-medium">+12% this month</Text>
+              <Text className="text-2xl font-bold text-gray-900">
+                {loadingStats ? "..." : statistics?.totalSent.toLocaleString() || "0"}
+              </Text>
+              <Text className={`text-xs font-medium ${
+                (statistics?.sentGrowth || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {(statistics?.sentGrowth || 0) >= 0 ? '+' : ''}{statistics?.sentGrowth || 0}% this month
+              </Text>
             </View>
 
             <View className="bg-white rounded-2xl p-4 flex-1 mr-3 shadow-sm border border-gray-100">
@@ -95,8 +155,12 @@ export default function DashboardScreen() {
                 </View>
                 <Text className="text-xs text-gray-600 font-medium">Delivered</Text>
               </View>
-              <Text className="text-2xl font-bold text-gray-900">99.2%</Text>
-              <Text className="text-xs text-green-600 font-medium">+2% from last month</Text>
+              <Text className="text-2xl font-bold text-gray-900">
+                {loadingStats ? "..." : `${statistics?.deliveryRate || 0}%`}
+              </Text>
+              <Text className="text-xs text-green-600 font-medium">
+                Success Rate
+              </Text>
             </View>
 
             <View className="bg-white rounded-2xl p-4 flex-1 shadow-sm border border-gray-100">
@@ -106,8 +170,12 @@ export default function DashboardScreen() {
                 </View>
                 <Text className="text-xs text-gray-600 font-medium">Balance</Text>
               </View>
-              <Text className="text-2xl font-bold text-gray-900">RWF 2,450</Text>
-              <Text className="text-xs text-gray-600 font-medium">≈ $1.85</Text>
+              <Text className="text-2xl font-bold text-gray-900">
+                {loadingStats ? "..." : `${statistics?.currency || 'RWF'} ${statistics?.balance.toLocaleString() || '0'}`}
+              </Text>
+              <Text className="text-xs text-gray-600 font-medium">
+                ≈ ${statistics?.usdEquivalent.toFixed(2) || '0.00'}
+              </Text>
             </View>
           </View>
         </View>
