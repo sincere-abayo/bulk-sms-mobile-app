@@ -19,7 +19,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "jsEngine": "jsc"
+      "jsEngine": "jsc",
+      "package": "com.codefusion11.mobile_app"
     },
     "web": {
       "output": "static",
