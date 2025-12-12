@@ -13,7 +13,7 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { authService } from "../src/services/api";
 import { useNetwork } from "../src/contexts/NetworkContext";
 
@@ -49,7 +49,7 @@ export default function LoginScreen() {
         const params = {
           phone: phone.trim(),
           userExists: "false",
-          receivedOTP: response.otp
+          receivedOTP: response.otp,
         };
         console.log("Navigating to OTP with params:", params);
         router.push({
@@ -58,7 +58,7 @@ export default function LoginScreen() {
         });
       }
     } catch (error: any) {
-      if (error.message === 'OFFLINE') {
+      if (error.message === "OFFLINE") {
         showOfflineWarning();
         Alert.alert(
           "Offline Mode",
@@ -66,7 +66,11 @@ export default function LoginScreen() {
         );
       } else {
         console.error("Login error:", error);
-        Alert.alert("Error", error.response?.data?.message || "Failed to process request. Please try again.");
+        Alert.alert(
+          "Error",
+          error.response?.data?.message ||
+            "Failed to process request. Please try again."
+        );
       }
     } finally {
       setIsLoading(false);
@@ -93,7 +97,13 @@ export default function LoginScreen() {
         >
           {/* Back Button */}
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/landing");
+              }
+            }}
             className="absolute top-12 left-6 w-10 h-10 bg-white/20 rounded-full justify-center items-center"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -104,7 +114,9 @@ export default function LoginScreen() {
             <View className="w-16 h-16 bg-white/20 rounded-full justify-center items-center mb-3">
               <Ionicons name="log-in" size={32} color="#ffffff" />
             </View>
-            <Text className="text-2xl font-bold text-white mb-1">Welcome Back</Text>
+            <Text className="text-2xl font-bold text-white mb-1">
+              Welcome Back
+            </Text>
             <Text className="text-white/80 text-center px-6 text-sm">
               Sign in to your account
             </Text>
@@ -124,7 +136,9 @@ export default function LoginScreen() {
 
           {/* Phone Input */}
           <View className="mb-8">
-            <Text className="text-sm font-medium text-gray-700 mb-2">Phone Number</Text>
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Phone Number
+            </Text>
             <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
               <View className="flex-row items-center mr-3">
                 <Text className="text-gray-600 mr-1">🇷🇼</Text>

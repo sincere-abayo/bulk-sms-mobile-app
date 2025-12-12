@@ -140,7 +140,7 @@ export default function LandingScreen() {
             BulkSMS Pro
           </Text>
           <Text className="text-lg text-white/90 text-center mb-7">
-            Send thousands of messages instantly
+            Perfect for weddings, parties, meetings & events
           </Text>
           {/* Animated Stats Row */}
           <Animated.View
@@ -167,8 +167,12 @@ export default function LandingScreen() {
               { label: "Happy Users", value: "500+" },
             ].map((stat, i) => (
               <View key={stat.label} style={{ alignItems: "center", flex: 1 }}>
-                <Text className="text-xl font-bold text-white">{stat.value}</Text>
-                <Text className="text-xs text-white mt-1 opacity-80">{stat.label}</Text>
+                <Text className="text-xl font-bold text-white">
+                  {stat.value}
+                </Text>
+                <Text className="text-xs text-white mt-1 opacity-80">
+                  {stat.label}
+                </Text>
                 {i < 2 && (
                   <View
                     style={{
@@ -184,11 +188,223 @@ export default function LandingScreen() {
               </View>
             ))}
           </Animated.View>
+
+          {/* Get Started Button in Hero */}
+          <Animated.View
+            style={{
+              marginTop: 24,
+              paddingHorizontal: 40,
+              opacity: fadeAnim,
+              transform: [
+                {
+                  translateY: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => router.push("/login")}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={["#ffffff", "#f8fafc"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  borderRadius: 16,
+                  paddingVertical: 16,
+                  paddingHorizontal: 32,
+                  shadowColor: "#000",
+                  shadowOpacity: 0.15,
+                  shadowRadius: 12,
+                  shadowOffset: { width: 0, height: 6 },
+                  elevation: 8,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: "bold",
+                      color: "#5427CE",
+                      marginRight: 8,
+                    }}
+                  >
+                    Get Started
+                  </Text>
+                  <Ionicons name="arrow-forward" size={20} color="#5427CE" />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
         </Animated.View>
       </View>
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* What Our App Can Help You Section */}
+        <View className="px-5 pt-8 pb-6">
+          <Text className="text-2xl font-extrabold text-gray-900 text-center mb-3">
+            Perfect for Your Events
+          </Text>
+          <Text className="text-base text-gray-600 text-center mb-8 leading-6">
+            Whether you're planning a wedding, organizing a party, or
+            coordinating a meeting, reach everyone instantly at an affordable
+            price.
+          </Text>
+
+          {/* Event Use Cases */}
+          <View className="gap-4">
+            {[
+              {
+                icon: "heart" as keyof typeof Ionicons.glyphMap,
+                title: "Weddings & Celebrations",
+                description:
+                  "Send invitations, updates, and thank you messages to all your guests",
+                color: "#ec4899",
+                bgColor: "#fdf2f8",
+              },
+              {
+                icon: "musical-notes" as keyof typeof Ionicons.glyphMap,
+                title: "Parties & Social Events",
+                description:
+                  "Coordinate party details, venue changes, and last-minute updates",
+                color: "#8b5cf6",
+                bgColor: "#f5f3ff",
+              },
+              {
+                icon: "business" as keyof typeof Ionicons.glyphMap,
+                title: "Business Meetings",
+                description:
+                  "Send meeting reminders, agenda updates, and follow-up messages",
+                color: "#06b6d4",
+                bgColor: "#f0fdfa",
+              },
+              {
+                icon: "school" as keyof typeof Ionicons.glyphMap,
+                title: "Community Events",
+                description:
+                  "Notify members about events, schedule changes, and important announcements",
+                color: "#f59e0b",
+                bgColor: "#fffbeb",
+              },
+            ].map((useCase, idx) => (
+              <Animated.View
+                key={useCase.title}
+                style={{
+                  backgroundColor: useCase.bgColor,
+                  borderRadius: 16,
+                  padding: 20,
+                  borderWidth: 1,
+                  borderColor: `${useCase.color}20`,
+                  transform: [
+                    {
+                      translateY: featureAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20 * (idx + 1), 0],
+                      }),
+                    },
+                  ],
+                  opacity: featureAnim,
+                }}
+              >
+                <View className="flex-row items-start">
+                  <View
+                    style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: 25,
+                      backgroundColor: useCase.color,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginRight: 16,
+                      shadowColor: useCase.color,
+                      shadowOpacity: 0.3,
+                      shadowRadius: 8,
+                      shadowOffset: { width: 0, height: 4 },
+                    }}
+                  >
+                    <Ionicons name={useCase.icon} size={24} color="#ffffff" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text className="text-lg font-bold text-gray-900 mb-2">
+                      {useCase.title}
+                    </Text>
+                    <Text className="text-sm text-gray-700 leading-5">
+                      {useCase.description}
+                    </Text>
+                  </View>
+                </View>
+              </Animated.View>
+            ))}
+          </View>
+
+          {/* Value Proposition */}
+          <View className="mt-8 bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-6 border border-purple-100">
+            <View className="items-center">
+              <View className="flex-row items-center mb-4">
+                <Ionicons name="flash" size={24} color="#7c3aed" />
+                <Text className="text-xl font-bold text-gray-900 ml-2">
+                  Why Choose Us?
+                </Text>
+              </View>
+
+              <View className="flex-row flex-wrap justify-center gap-4">
+                {[
+                  {
+                    icon: "cash-outline",
+                    text: "Low Cost",
+                    subtext: "Only 15 RWF per SMS",
+                  },
+                  {
+                    icon: "speedometer-outline",
+                    text: "Instant Delivery",
+                    subtext: "Reach everyone in seconds",
+                  },
+                  {
+                    icon: "people-outline",
+                    text: "Bulk Messaging",
+                    subtext: "Send to thousands at once",
+                  },
+                  {
+                    icon: "shield-checkmark-outline",
+                    text: "Reliable",
+                    subtext: "99.9% delivery rate",
+                  },
+                ].map((benefit) => (
+                  <View
+                    key={benefit.text}
+                    className="items-center flex-1 min-w-[120px]"
+                  >
+                    <View className="w-12 h-12 bg-purple-100 rounded-full justify-center items-center mb-2">
+                      <Ionicons
+                        name={benefit.icon as any}
+                        size={20}
+                        color="#7c3aed"
+                      />
+                    </View>
+                    <Text className="text-sm font-semibold text-gray-900 text-center">
+                      {benefit.text}
+                    </Text>
+                    <Text className="text-xs text-gray-600 text-center">
+                      {benefit.subtext}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* Features Section */}
-        <View className="px-5 pt-10">
+        <View className="px-5 pt-6">
           <Text className="text-2xl font-extrabold text-gray-900 text-center mb-7">
             Why Choose BulkSMS Pro?
           </Text>
@@ -240,7 +456,9 @@ export default function LandingScreen() {
                     <Text className="text-lg font-semibold text-gray-900 mb-1">
                       {f.title}
                     </Text>
-                    <Text className="text-sm text-gray-600 leading-5">{f.desc}</Text>
+                    <Text className="text-sm text-gray-600 leading-5">
+                      {f.desc}
+                    </Text>
                   </View>
                 </Animated.View>
               ))}
@@ -267,20 +485,24 @@ export default function LandingScreen() {
               shadowOffset: { width: 0, height: 2 },
             }}
           >
-            <Text className="text-5xl font-extrabold text-purple-600">15 rwf</Text>
+            <Text className="text-5xl font-extrabold text-purple-600">
+              15 rwf
+            </Text>
             <Text className="text-base text-gray-700 mb-3">per SMS</Text>
             <Text className="text-sm text-gray-600 text-center leading-5">
-              No monthly fees • Pay only for what you send • Bulk discounts available
+              No monthly fees • Pay only for what you send • Bulk discounts
+              available
             </Text>
           </LinearGradient>
         </View>
         {/* CTA Section */}
         <View className="px-5 pt-12 items-center">
           <Text className="text-3xl font-extrabold text-gray-900 text-center mb-2">
-            Ready to get started?
+            Ready for your next event?
           </Text>
           <Text className="text-base text-gray-600 text-center mb-8">
-            Join thousands of businesses already using BulkSMS Pro
+            Join event organizers who trust BulkSMS Pro for seamless
+            communication
           </Text>
           <Animated.View style={{ opacity: fadeAnim, width: "100%" }}>
             <LinearGradient
@@ -297,7 +519,7 @@ export default function LandingScreen() {
               >
                 <View className="flex-row items-center justify-center gap-3">
                   <Text className="text-lg font-bold text-white tracking-wide">
-                    Get Started Free
+                    Get Started
                   </Text>
                   <Ionicons name="arrow-forward" size={22} color="#ffffff" />
                 </View>
@@ -315,9 +537,12 @@ export default function LandingScreen() {
           </TouchableOpacity>
         </View>
         {/* Footer */}
-        <View className="mt-10 mb-4 items-center opacity-70">
-          <Text className="text-xs text-gray-500">
-            &copy; {new Date().getFullYear()} BulkSMS Pro &mdash; All rights reserved.
+        <View className="mt-10 mb-4 items-center opacity-80">
+          <Text className="text-sm text-gray-600 text-center font-medium">
+            &copy; {new Date().getFullYear()} BulkSMS Pro by Codefusion Ltd
+          </Text>
+          <Text className="text-sm text-gray-500 text-center mt-1">
+            All rights reserved.
           </Text>
         </View>
       </ScrollView>

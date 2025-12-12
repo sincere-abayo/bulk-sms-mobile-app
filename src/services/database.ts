@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 
 export interface CachedContact {
   id: string;
@@ -38,17 +39,47 @@ export interface QueuedBatch {
 }
 
 class DatabaseService {
-  private db: SQLite.SQLiteDatabase;
+  private db: SQLite.SQLiteDatabase | null = null;
+  private isWeb: boolean;
 
   constructor() {
-    this.db = SQLite.openDatabaseSync('bulksms.db');
-    this.initDatabase();
+    this.isWeb = Platform.OS === 'web';
+    
+    if (!this.isWeb) {
+      this.db = SQLite.openDatabaseSync('bulksms.db');
+      this.initDatabase();
+    } else {
+      // For web, we'll use localStorage as a fallback
+      console.log('Running on web - using localStorage fallback for database');
+    }
+  }
+
+  // Web localStorage helpers
+  private getFromStorage(key: string): any[] {
+    if (typeof localStorage === 'undefined') return [];
+    try {
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private saveToStorage(key: string, data: any[]): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.error('Failed to save to localStorage:', error);
+    }
   }
 
   private async initDatabase(): Promise<void> {
+    if (this.isWeb) return; // Skip database initialization on web
+    
     try {
       // Create cached_contacts table
-      await this.db.execAsync(`
+      await this.db!.execAsync(`
         CREATE TABLE IF NOT EXISTS cached_contacts (
           id TEXT PRIMARY KEY,
           userId TEXT NOT NULL,
@@ -63,7 +94,7 @@ class DatabaseService {
       `);
 
       // Create draft_messages table
-      await this.db.execAsync(`
+      await this.db!.execAsync(`
         CREATE TABLE IF NOT EXISTS draft_messages (
           id TEXT PRIMARY KEY,
           userId TEXT NOT NULL,
@@ -77,7 +108,7 @@ class DatabaseService {
       `);
 
       // Create queued_batches table
-      await this.db.execAsync(`
+      await this.db!.execAsync(`
         CREATE TABLE IF NOT EXISTS queued_batches (
           id TEXT PRIMARY KEY,
           userId TEXT NOT NULL,
@@ -94,10 +125,10 @@ class DatabaseService {
       `);
 
       // Create indexes for better performance
-      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_cached_contacts_user ON cached_contacts(userId)`);
-      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_draft_messages_user ON draft_messages(userId)`);
-      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_queued_batches_user ON queued_batches(userId)`);
-      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_queued_batches_status ON queued_batches(status)`);
+      await this.db!.execAsync(`CREATE INDEX IF NOT EXISTS idx_cached_contacts_user ON cached_contacts(userId)`);
+      await this.db!.execAsync(`CREATE INDEX IF NOT EXISTS idx_draft_messages_user ON draft_messages(userId)`);
+      await this.db!.execAsync(`CREATE INDEX IF NOT EXISTS idx_queued_batches_user ON queued_batches(userId)`);
+      await this.db!.execAsync(`CREATE INDEX IF NOT EXISTS idx_queued_batches_status ON queued_batches(status)`);
 
       console.log('Database initialized successfully');
     } catch (error) {
@@ -111,7 +142,7 @@ class DatabaseService {
     try {
       // Use INSERT OR REPLACE to merge contacts instead of clearing all
       for (const contact of contacts) {
-        await this.db.runAsync(`
+        await this.db!.runAsync(`
           INSERT OR REPLACE INTO cached_contacts
           (id, userId, name, phone, source, serverId, lastSynced, createdAt, updatedAt)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -136,11 +167,35 @@ class DatabaseService {
   // New method to safely merge server contacts with local ones
   async mergeServerContacts(userId: string, serverContacts: CachedContact[]): Promise<void> {
     try {
+      if (this.isWeb) {
+        const contacts = this.getFromStorage(`contacts_${userId}`);
+        
+        for (const contact of serverContacts) {
+          if (contact.serverId) {
+            const existingIndex = contacts.findIndex(c => c.serverId === contact.serverId);
+            const contactToSave = {
+              ...contact,
+              id: contact.serverId, // Use serverId as the local ID for server contacts
+              lastSynced: contact.lastSynced || new Date().toISOString(),
+            };
+            
+            if (existingIndex >= 0) {
+              contacts[existingIndex] = contactToSave;
+            } else {
+              contacts.push(contactToSave);
+            }
+          }
+        }
+        
+        this.saveToStorage(`contacts_${userId}`, contacts);
+        return;
+      }
+
       // Only update contacts that exist on server (have serverId)
       // This preserves local-only contacts that haven't been synced yet
       for (const contact of serverContacts) {
         if (contact.serverId) {
-          await this.db.runAsync(`
+          await this.db!.runAsync(`
             INSERT OR REPLACE INTO cached_contacts
             (id, userId, name, phone, source, serverId, lastSynced, createdAt, updatedAt)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -165,7 +220,12 @@ class DatabaseService {
 
   async getCachedContacts(userId: string): Promise<CachedContact[]> {
     try {
-      const result = await this.db.getAllAsync<CachedContact>(
+      if (this.isWeb) {
+        const contacts = this.getFromStorage(`contacts_${userId}`);
+        return contacts.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      
+      const result = await this.db!.getAllAsync<CachedContact>(
         'SELECT * FROM cached_contacts WHERE userId = ? ORDER BY name ASC',
         [userId]
       );
@@ -178,7 +238,19 @@ class DatabaseService {
 
   async addCachedContact(contact: CachedContact): Promise<void> {
     try {
-      await this.db.runAsync(`
+      if (this.isWeb) {
+        const contacts = this.getFromStorage(`contacts_${contact.userId}`);
+        const existingIndex = contacts.findIndex(c => c.id === contact.id);
+        if (existingIndex >= 0) {
+          contacts[existingIndex] = contact;
+        } else {
+          contacts.push(contact);
+        }
+        this.saveToStorage(`contacts_${contact.userId}`, contacts);
+        return;
+      }
+
+      await this.db!.runAsync(`
         INSERT OR REPLACE INTO cached_contacts
         (id, userId, name, phone, source, serverId, lastSynced, createdAt, updatedAt)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -200,8 +272,15 @@ class DatabaseService {
   }
 
   async removeCachedContact(userId: string, contactId: string): Promise<void> {
+    if (this.isWeb) {
+      const contacts = this.getFromStorage(`contacts_${userId}`);
+      const filteredContacts = contacts.filter(c => c.id !== contactId);
+      this.saveToStorage(`contacts_${userId}`, filteredContacts);
+      return;
+    }
+
     try {
-      await this.db.runAsync(
+      await this.db!.runAsync(
         'DELETE FROM cached_contacts WHERE userId = ? AND id = ?',
         [userId, contactId]
       );
@@ -212,8 +291,19 @@ class DatabaseService {
   }
 
   async updateContactServerId(userId: string, localId: string, serverId: string): Promise<void> {
+    if (this.isWeb) {
+      const contacts = this.getFromStorage(`contacts_${userId}`);
+      const contactIndex = contacts.findIndex(c => c.id === localId);
+      if (contactIndex >= 0) {
+        contacts[contactIndex].serverId = serverId;
+        contacts[contactIndex].lastSynced = new Date().toISOString();
+        this.saveToStorage(`contacts_${userId}`, contacts);
+      }
+      return;
+    }
+
     try {
-      await this.db.runAsync(
+      await this.db!.runAsync(
         'UPDATE cached_contacts SET serverId = ?, lastSynced = ? WHERE userId = ? AND id = ?',
         [serverId, new Date().toISOString(), userId, localId]
       );
@@ -226,7 +316,19 @@ class DatabaseService {
   // Draft Messages Methods
   async saveDraftMessage(draft: DraftMessage): Promise<void> {
     try {
-      await this.db.runAsync(`
+      if (this.isWeb) {
+        const drafts = this.getFromStorage(`drafts_${draft.userId}`);
+        const existingIndex = drafts.findIndex(d => d.id === draft.id);
+        if (existingIndex >= 0) {
+          drafts[existingIndex] = draft;
+        } else {
+          drafts.push(draft);
+        }
+        this.saveToStorage(`drafts_${draft.userId}`, drafts);
+        return;
+      }
+
+      await this.db!.runAsync(`
         INSERT OR REPLACE INTO draft_messages
         (id, userId, title, content, recipientCount, contactIds, createdAt, updatedAt)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -248,7 +350,12 @@ class DatabaseService {
 
   async getDraftMessages(userId: string): Promise<DraftMessage[]> {
     try {
-      const result = await this.db.getAllAsync<DraftMessage>(
+      if (this.isWeb) {
+        const drafts = this.getFromStorage(`drafts_${userId}`);
+        return drafts.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      }
+
+      const result = await this.db!.getAllAsync<DraftMessage>(
         'SELECT * FROM draft_messages WHERE userId = ? ORDER BY updatedAt DESC',
         [userId]
       );
@@ -261,7 +368,14 @@ class DatabaseService {
 
   async deleteDraftMessage(userId: string, draftId: string): Promise<void> {
     try {
-      await this.db.runAsync(
+      if (this.isWeb) {
+        const drafts = this.getFromStorage(`drafts_${userId}`);
+        const filteredDrafts = drafts.filter(d => d.id !== draftId);
+        this.saveToStorage(`drafts_${userId}`, filteredDrafts);
+        return;
+      }
+
+      await this.db!.runAsync(
         'DELETE FROM draft_messages WHERE userId = ? AND id = ?',
         [userId, draftId]
       );
@@ -273,8 +387,14 @@ class DatabaseService {
 
   // Queued Batches Methods
   async queueBatch(batch: QueuedBatch): Promise<void> {
+    if (this.isWeb) {
+      // For web, we'll just log the batch (since it's mainly for offline functionality)
+      console.log('Web: Queuing batch (localStorage fallback):', batch);
+      return;
+    }
+
     try {
-      await this.db.runAsync(`
+      await this.db!.runAsync(`
         INSERT INTO queued_batches
         (id, userId, messageId, contactIds, message, status, priority, scheduledAt, createdAt, updatedAt, errorMessage)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -309,7 +429,7 @@ class DatabaseService {
 
       query += ' ORDER BY priority DESC, createdAt ASC';
 
-      const result = await this.db.getAllAsync<QueuedBatch>(query, params);
+      const result = await this.db!.getAllAsync<QueuedBatch>(query, params);
       return result;
     } catch (error) {
       console.error('Error getting queued batches:', error);
@@ -319,7 +439,7 @@ class DatabaseService {
 
   async updateBatchStatus(batchId: string, status: string, errorMessage?: string): Promise<void> {
     try {
-      await this.db.runAsync(
+      await this.db!.runAsync(
         'UPDATE queued_batches SET status = ?, errorMessage = ?, updatedAt = ? WHERE id = ?',
         [status, errorMessage || null, new Date().toISOString(), batchId]
       );
@@ -331,7 +451,7 @@ class DatabaseService {
 
   async removeBatch(batchId: string): Promise<void> {
     try {
-      await this.db.runAsync(
+      await this.db!.runAsync(
         'DELETE FROM queued_batches WHERE id = ?',
         [batchId]
       );
@@ -344,9 +464,9 @@ class DatabaseService {
   // Utility Methods
   async clearUserData(userId: string): Promise<void> {
     try {
-      await this.db.runAsync('DELETE FROM cached_contacts WHERE userId = ?', [userId]);
-      await this.db.runAsync('DELETE FROM draft_messages WHERE userId = ?', [userId]);
-      await this.db.runAsync('DELETE FROM queued_batches WHERE userId = ?', [userId]);
+      await this.db!.runAsync('DELETE FROM cached_contacts WHERE userId = ?', [userId]);
+      await this.db!.runAsync('DELETE FROM draft_messages WHERE userId = ?', [userId]);
+      await this.db!.runAsync('DELETE FROM queued_batches WHERE userId = ?', [userId]);
     } catch (error) {
       console.error('Error clearing user data:', error);
       throw error;
@@ -380,17 +500,17 @@ class DatabaseService {
     queuedBatches: number;
   }> {
     try {
-      const contactsResult = await this.db.getFirstAsync<{ count: number }>(
+      const contactsResult = await this.db!.getFirstAsync<{ count: number }>(
         'SELECT COUNT(*) as count FROM cached_contacts WHERE userId = ?',
         [userId]
       );
 
-      const draftsResult = await this.db.getFirstAsync<{ count: number }>(
+      const draftsResult = await this.db!.getFirstAsync<{ count: number }>(
         'SELECT COUNT(*) as count FROM draft_messages WHERE userId = ?',
         [userId]
       );
 
-      const batchesResult = await this.db.getFirstAsync<{ count: number }>(
+      const batchesResult = await this.db!.getFirstAsync<{ count: number }>(
         'SELECT COUNT(*) as count FROM queued_batches WHERE userId = ?',
         [userId]
       );

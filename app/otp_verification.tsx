@@ -25,10 +25,13 @@ export default function OTPVerificationScreen() {
   // Check if user exists based on parameter
   const isExistingUser = userExists === "true";
 
-
   // Debug log parameters
   React.useEffect(() => {
-    console.log("OTP Screen Parameters:", { phone, userExists, isExistingUser });
+    console.log("OTP Screen Parameters:", {
+      phone,
+      userExists,
+      isExistingUser,
+    });
   }, [phone, userExists, isExistingUser]);
 
   const handleVerifyOTP = async () => {
@@ -43,7 +46,10 @@ export default function OTPVerificationScreen() {
     }
 
     if (!phone) {
-      Alert.alert("Error", "Missing phone number. Please go back and try again.");
+      Alert.alert(
+        "Error",
+        "Missing phone number. Please go back and try again."
+      );
       return;
     }
 
@@ -59,12 +65,16 @@ export default function OTPVerificationScreen() {
       await AsyncStorage.setItem("authToken", response.token);
       await AsyncStorage.setItem("userData", JSON.stringify(response.user));
 
-      Alert.alert("Success", isExistingUser ? "Login successful!" : "Account created successfully!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/dashboard" as any),
-        },
-      ]);
+      Alert.alert(
+        "Success",
+        isExistingUser ? "Login successful!" : "Account created successfully!",
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/dashboard" as any),
+          },
+        ]
+      );
     } catch (error: any) {
       Alert.alert("Error", error.response?.data?.error || "Invalid OTP");
     } finally {
@@ -84,7 +94,10 @@ export default function OTPVerificationScreen() {
       Alert.alert("Success", "OTP sent successfully!");
       console.log("Resent OTP:", response.otp);
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.message || "Failed to resend OTP");
+      Alert.alert(
+        "Error",
+        error.response?.data?.message || "Failed to resend OTP"
+      );
     } finally {
       setResendLoading(false);
     }
@@ -97,7 +110,13 @@ export default function OTPVerificationScreen() {
       {/* Header with back button */}
       <View className="flex-row items-center justify-between px-6 py-4 bg-purple-600">
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/login");
+            }
+          }}
           className="w-10 h-10 bg-white/20 rounded-full justify-center items-center"
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -118,9 +137,15 @@ export default function OTPVerificationScreen() {
           <View className="w-20 h-20 bg-purple-100 rounded-full justify-center items-center mb-4">
             <Ionicons name="lock-closed" size={40} color="#7c3aed" />
           </View>
-          <Text className="text-3xl font-bold text-gray-900 mb-2">Verification</Text>
-          <Text className="text-gray-600 text-center mb-1">Enter the 6-digit code sent to</Text>
-          <Text className="text-lg font-semibold text-purple-600">{phone || "Your phone"}</Text>
+          <Text className="text-3xl font-bold text-gray-900 mb-2">
+            Verification
+          </Text>
+          <Text className="text-gray-600 text-center mb-1">
+            Enter the 6-digit code sent to
+          </Text>
+          <Text className="text-lg font-semibold text-purple-600">
+            {phone || "Your phone"}
+          </Text>
         </View>
 
         {/* SMS Info Notice */}
@@ -151,7 +176,7 @@ export default function OTPVerificationScreen() {
               keyboardType="number-pad"
               maxLength={6}
               textContentType="oneTimeCode" // iOS auto-fill hint
-              autoComplete="sms-otp"        // Android auto-fill hint
+              autoComplete="sms-otp" // Android auto-fill hint
             />
           </View>
 
@@ -192,8 +217,10 @@ export default function OTPVerificationScreen() {
             className="flex-row justify-center items-center"
           >
             <Text className="text-gray-600">Didn't receive code? </Text>
-            <Text className={`font-medium ${resendLoading ? 'text-gray-400' : 'text-purple-600'}`}>
-              {resendLoading ? 'Sending...' : 'Resend'}
+            <Text
+              className={`font-medium ${resendLoading ? "text-gray-400" : "text-purple-600"}`}
+            >
+              {resendLoading ? "Sending..." : "Resend"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -201,4 +228,3 @@ export default function OTPVerificationScreen() {
     </SafeAreaView>
   );
 }
-
