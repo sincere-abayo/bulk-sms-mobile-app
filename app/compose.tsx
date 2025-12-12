@@ -32,8 +32,12 @@ export default function ComposeScreen() {
   const { isConnected, showOfflineWarning } = useNetwork();
   const params = useLocalSearchParams();
   const [message, setMessage] = useState("");
-  const [selectedContacts, setSelectedContacts] = useState<SelectedContact[]>([]);
-  const [availableContacts, setAvailableContacts] = useState<CachedContact[]>([]);
+  const [selectedContacts, setSelectedContacts] = useState<SelectedContact[]>(
+    []
+  );
+  const [availableContacts, setAvailableContacts] = useState<CachedContact[]>(
+    []
+  );
   const [showContactModal, setShowContactModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string>("");
@@ -41,7 +45,9 @@ export default function ComposeScreen() {
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [showTips, setShowTips] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'mobile' | 'card'>('mobile');
+  const [paymentMethod, setPaymentMethod] = useState<"mobile" | "card">(
+    "mobile"
+  );
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Auto-save refs
@@ -53,6 +59,39 @@ export default function ComposeScreen() {
   // SMS Constants
   const SMS_COST_PER_MESSAGE = 15; // RWF
   const MAX_SMS_LENGTH = 160;
+
+  // Phone number validation function
+  const validatePhoneNumber = (
+    phone: string
+  ): { isValid: boolean; error?: string } => {
+    // Remove all non-digit characters except +
+    const cleanPhone = phone.replace(/[^\d+]/g, "");
+
+    // Check if it's a valid Rwandan number
+    if (cleanPhone.startsWith("+250")) {
+      const number = cleanPhone.substring(4);
+      if (number.length === 9 && /^[0-9]+$/.test(number)) {
+        return { isValid: true };
+      }
+      return { isValid: false, error: "Invalid Rwanda phone number format" };
+    } else if (cleanPhone.startsWith("250")) {
+      const number = cleanPhone.substring(3);
+      if (number.length === 9 && /^[0-9]+$/.test(number)) {
+        return { isValid: true };
+      }
+      return { isValid: false, error: "Invalid Rwanda phone number format" };
+    } else if (cleanPhone.startsWith("0")) {
+      const number = cleanPhone.substring(1);
+      if (number.length === 9 && /^[0-9]+$/.test(number)) {
+        return { isValid: true };
+      }
+      return { isValid: false, error: "Invalid Rwanda phone number format" };
+    } else if (cleanPhone.length === 9 && /^[0-9]+$/.test(cleanPhone)) {
+      return { isValid: true };
+    }
+
+    return { isValid: false, error: "Invalid phone number format" };
+  };
 
   useEffect(() => {
     loadUserAndContacts();
@@ -66,22 +105,25 @@ export default function ComposeScreen() {
 
     // Check if content has actually changed
     const currentContent = message.trim();
-    const currentContacts = JSON.stringify(selectedContacts.map(c => c.id));
+    const currentContacts = JSON.stringify(selectedContacts.map((c) => c.id));
 
-    if (currentContent === lastSavedContentRef.current &&
-        currentContacts === lastSavedContactsRef.current) {
+    if (
+      currentContent === lastSavedContentRef.current &&
+      currentContacts === lastSavedContactsRef.current
+    ) {
       return; // No changes
     }
 
     try {
       setIsAutoSaving(true);
 
-      const draftId = params.draftId as string || `auto-${Date.now()}`;
+      const draftId = (params.draftId as string) || `auto-${Date.now()}`;
 
       const draft = {
         id: draftId,
         userId,
-        title: loadedDraftTitle || `Auto-saved ${new Date().toLocaleDateString()}`,
+        title:
+          loadedDraftTitle || `Auto-saved ${new Date().toLocaleDateString()}`,
         content: currentContent,
         recipientCount: selectedContacts.length,
         contactIds: currentContacts,
@@ -95,9 +137,9 @@ export default function ComposeScreen() {
       lastSavedContentRef.current = currentContent;
       lastSavedContactsRef.current = currentContacts;
 
-      console.log('Auto-saved draft');
+      console.log("Auto-saved draft");
     } catch (error) {
-      console.error('Auto-save failed:', error);
+      console.error("Auto-save failed:", error);
     } finally {
       setIsAutoSaving(false);
     }
@@ -122,8 +164,11 @@ export default function ComposeScreen() {
 
   // App state listener for background saves
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (appStateRef.current.match(/active/) && nextAppState.match(/inactive|background/)) {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (
+        appStateRef.current.match(/active/) &&
+        nextAppState.match(/inactive|background/)
+      ) {
         // App going to background - save immediately
         if (autoSaveTimeoutRef.current) {
           clearTimeout(autoSaveTimeoutRef.current);
@@ -160,10 +205,13 @@ export default function ComposeScreen() {
 
           if (draftId) {
             // Load specific draft
-            const draft = drafts.find(d => d.id === draftId);
+            const draft = drafts.find((d) => d.id === draftId);
             if (draft) {
               loadDraftContent(draft);
-              Alert.alert("Draft Loaded", `"${draft.title}" has been loaded successfully`);
+              Alert.alert(
+                "Draft Loaded",
+                `"${draft.title}" has been loaded successfully`
+              );
             }
           } else if (drafts.length > 0) {
             // Load latest draft by default
@@ -173,7 +221,7 @@ export default function ComposeScreen() {
             console.log(`Auto-loaded latest draft: ${latestDraft.title}`);
           }
         } catch (error) {
-          console.error('Error loading draft:', error);
+          console.error("Error loading draft:", error);
           Alert.alert("Error", "Failed to load draft");
         }
       }
@@ -189,14 +237,16 @@ export default function ComposeScreen() {
 
     // Load selected contacts from draft
     const contactIds = JSON.parse(draft.contactIds);
-    const draftContacts = availableContacts.filter(contact =>
+    const draftContacts = availableContacts.filter((contact) =>
       contactIds.includes(contact.id)
     );
-    setSelectedContacts(draftContacts.map(c => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-    })));
+    setSelectedContacts(
+      draftContacts.map((c) => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+      }))
+    );
 
     // Initialize auto-save refs to prevent immediate auto-save
     lastSavedContentRef.current = draft.content;
@@ -205,9 +255,9 @@ export default function ComposeScreen() {
 
   const loadUserAndContacts = async () => {
     try {
-      const token = await AsyncStorage.getItem('authToken');
+      const token = await AsyncStorage.getItem("authToken");
       if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = JSON.parse(atob(token.split(".")[1]));
         const uid = payload.userId;
         setUserId(uid);
 
@@ -216,20 +266,23 @@ export default function ComposeScreen() {
         setAvailableContacts(contacts);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
     }
   };
 
   const toggleContactSelection = (contact: CachedContact) => {
-    const isSelected = selectedContacts.some(c => c.id === contact.id);
+    const isSelected = selectedContacts.some((c) => c.id === contact.id);
     if (isSelected) {
-      setSelectedContacts(prev => prev.filter(c => c.id !== contact.id));
+      setSelectedContacts((prev) => prev.filter((c) => c.id !== contact.id));
     } else {
-      setSelectedContacts(prev => [...prev, {
-        id: contact.id,
-        name: contact.name,
-        phone: contact.phone,
-      }]);
+      setSelectedContacts((prev) => [
+        ...prev,
+        {
+          id: contact.id,
+          name: contact.name,
+          phone: contact.phone,
+        },
+      ]);
     }
   };
 
@@ -257,6 +310,23 @@ export default function ComposeScreen() {
       return;
     }
 
+    // Validate phone numbers before sending
+    const invalidContacts = [];
+    for (const contact of selectedContacts) {
+      const validation = validatePhoneNumber(contact.phone);
+      if (!validation.isValid) {
+        invalidContacts.push(`${contact.name}: ${validation.error}`);
+      }
+    }
+
+    if (invalidContacts.length > 0) {
+      Alert.alert(
+        "Invalid Phone Numbers",
+        `The following contacts have invalid phone numbers:\n\n${invalidContacts.join("\n")}\n\nPlease fix these numbers before sending.`
+      );
+      return;
+    }
+
     // Show payment modal instead of sending directly
     setShowPaymentModal(true);
   };
@@ -266,13 +336,16 @@ export default function ComposeScreen() {
 
     try {
       // Simulate payment processing (fake payment)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // After "payment" success, send the SMS
       await sendSMSAfterPayment();
     } catch (error) {
-      console.error('Payment failed:', error);
-      Alert.alert("Payment Failed", "Payment processing failed. Please try again.");
+      console.error("Payment failed:", error);
+      Alert.alert(
+        "Payment Failed",
+        "Payment processing failed. Please try again."
+      );
     } finally {
       setIsProcessingPayment(false);
       setShowPaymentModal(false);
@@ -293,34 +366,57 @@ export default function ComposeScreen() {
       // Send SMS via API
       const result = await authService.sendSMS(
         message.trim(),
-        selectedContacts.map(c => ({ name: c.name, phone: c.phone }))
+        selectedContacts.map((c) => ({ name: c.name, phone: c.phone }))
       );
 
-      Alert.alert(
-        "Success",
-        `Message sent to ${result.sent} recipients!${result.failed > 0 ? ` (${result.failed} failed)` : ''}`
-      );
+      console.log("SMS Send Result:", result);
 
-      // Reset form
-      setMessage("");
-      setSelectedContacts([]);
-      setLoadedDraftTitle("");
+      // Show detailed results
+      if (result.sent > 0 && result.failed === 0) {
+        Alert.alert(
+          "✅ Success",
+          `Message sent successfully to all ${result.sent} recipients!`
+        );
+      } else if (result.sent > 0 && result.failed > 0) {
+        Alert.alert(
+          "⚠️ Partial Success",
+          `Message sent to ${result.sent} recipients, but ${result.failed} failed.\n\nCheck message history for details.`
+        );
+      } else {
+        // All failed
+        let errorDetails = "";
+        if (result.errors && result.errors.length > 0) {
+          const firstError = result.errors[0];
+          errorDetails = `\n\nError: ${firstError.error}`;
+        }
+        Alert.alert(
+          "❌ Send Failed",
+          `Failed to send message to all recipients.${errorDetails}`
+        );
+      }
 
-      // Clear auto-save refs
-      lastSavedContentRef.current = "";
-      lastSavedContactsRef.current = "";
+      // Reset form only if at least one message was sent
+      if (result.sent > 0) {
+        setMessage("");
+        setSelectedContacts([]);
+        setLoadedDraftTitle("");
+
+        // Clear auto-save refs
+        lastSavedContentRef.current = "";
+        lastSavedContactsRef.current = "";
+      }
     } catch (error: any) {
-      console.error('Error sending message:', error);
-      if (error.message === 'OFFLINE') {
+      console.error("Error sending message:", error);
+      if (error.message === "OFFLINE") {
         // Fallback to offline queuing if API fails due to network
         try {
           const messageData = {
             id: Date.now().toString(),
             userId,
             messageId: Date.now().toString(),
-            contactIds: JSON.stringify(selectedContacts.map(c => c.id)),
+            contactIds: JSON.stringify(selectedContacts.map((c) => c.id)),
             message: message.trim(),
-            status: 'pending' as 'pending' | 'sending' | 'completed' | 'failed',
+            status: "pending" as "pending" | "sending" | "completed" | "failed",
             priority: 1,
             scheduledAt: undefined,
             createdAt: new Date().toISOString(),
@@ -329,12 +425,23 @@ export default function ComposeScreen() {
           };
 
           await databaseService.queueBatch(messageData);
-          Alert.alert("Success", "Message queued offline. Will be sent when online.");
+          Alert.alert(
+            "📱 Offline Mode",
+            "Message queued offline. Will be sent when online."
+          );
         } catch (offlineError) {
           Alert.alert("Error", "Failed to queue message offline.");
         }
       } else {
-        Alert.alert("Error", error.response?.data?.error || "Failed to send message. Please try again.");
+        // Extract meaningful error message
+        let errorMessage = "Failed to send message. Please try again.";
+        if (error.response?.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        Alert.alert("❌ Send Failed", errorMessage);
       }
     } finally {
       setIsLoading(false);
@@ -351,7 +458,7 @@ export default function ComposeScreen() {
       // Check if we have a draftId from params (editing existing draft)
       const draftId = params.draftId as string;
       const currentContent = message.trim();
-      const currentContacts = JSON.stringify(selectedContacts.map(c => c.id));
+      const currentContacts = JSON.stringify(selectedContacts.map((c) => c.id));
 
       const draft = {
         id: draftId || Date.now().toString(),
@@ -373,9 +480,12 @@ export default function ComposeScreen() {
       // Clear the loaded draft title since we've saved/updated
       setLoadedDraftTitle("");
 
-      Alert.alert("Success", draftId ? "Draft updated successfully!" : "Draft saved successfully!");
+      Alert.alert(
+        "Success",
+        draftId ? "Draft updated successfully!" : "Draft saved successfully!"
+      );
     } catch (error) {
-      console.error('Error saving draft:', error);
+      console.error("Error saving draft:", error);
       Alert.alert("Error", "Failed to save draft");
     }
   };
@@ -407,7 +517,9 @@ export default function ComposeScreen() {
           </TouchableOpacity>
 
           <View className="flex-1">
-            <Text className="text-xl font-bold text-white">Compose Message</Text>
+            <Text className="text-xl font-bold text-white">
+              Compose Message
+            </Text>
             {loadedDraftTitle && (
               <Text className="text-xs text-white/80 mt-1">
                 Loaded: {loadedDraftTitle}
@@ -445,7 +557,9 @@ export default function ComposeScreen() {
         {/* Recipients Section */}
         <View className="px-6 py-4 border-b border-gray-200">
           <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-lg font-semibold text-gray-900">Recipients</Text>
+            <Text className="text-lg font-semibold text-gray-900">
+              Recipients
+            </Text>
             <TouchableOpacity
               onPress={() => setShowContactModal(true)}
               className="flex-row items-center bg-purple-100 px-3 py-1 rounded-full"
@@ -462,7 +576,9 @@ export default function ComposeScreen() {
                   key={contact.id}
                   className="bg-purple-100 px-3 py-1 rounded-full mr-2 mb-2 flex-row items-center"
                 >
-                  <Text className="text-purple-700 text-sm">{contact.name}</Text>
+                  <Text className="text-purple-700 text-sm">
+                    {contact.name}
+                  </Text>
                   <TouchableOpacity
                     onPress={() => toggleContactSelection(contact as any)}
                     className="ml-2"
@@ -484,7 +600,9 @@ export default function ComposeScreen() {
             <Text className="text-lg font-semibold text-gray-900">Message</Text>
             <View className="flex-row items-center bg-green-50 px-2 py-1 rounded-full">
               <Ionicons name="shield-checkmark" size={12} color="#16a34a" />
-              <Text className="text-xs text-green-700 ml-1 font-medium">Auto-saved</Text>
+              <Text className="text-xs text-green-700 ml-1 font-medium">
+                Auto-saved
+              </Text>
             </View>
           </View>
 
@@ -496,7 +614,7 @@ export default function ComposeScreen() {
               value={message}
               onChangeText={setMessage}
               maxLength={MAX_SMS_LENGTH * 5} // Allow up to 5 SMS
-              style={{ textAlignVertical: 'top' }}
+              style={{ textAlignVertical: "top" }}
             />
 
             {/* Character Count & Cost */}
@@ -528,11 +646,7 @@ export default function ComposeScreen() {
             onPress={() => setShowTips(!showTips)}
             className="flex-row items-center justify-center py-3 bg-blue-50 rounded-xl border border-blue-200"
           >
-            <Ionicons
-              name="information-circle"
-              size={20}
-              color="#3b82f6"
-            />
+            <Ionicons name="information-circle" size={20} color="#3b82f6" />
             <Text className="text-blue-700 font-medium ml-2">
               Draft Tips & Shortcuts
             </Text>
@@ -553,35 +667,70 @@ export default function ComposeScreen() {
               <View className="space-y-3">
                 <View className="flex-row items-start">
                   <View className="w-6 h-6 bg-green-100 rounded-full justify-center items-center mr-3 mt-0.5">
-                    <Ionicons name="checkmark-circle" size={14} color="#16a34a" />
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={14}
+                      color="#16a34a"
+                    />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-sm font-medium text-gray-900">Auto-Save Active</Text>
-                    <Text className="text-xs text-gray-600">Your message is automatically saved every 2 seconds</Text>
-                  </View>
-                </View>
-
-                <View className="flex-row items-start">
-                  <Ionicons name="save" size={16} color="#7c3aed" style={{ marginRight: 11, marginTop: 2 }} />
-                  <View className="flex-1">
-                    <Text className="text-sm font-medium text-gray-900">Manual Save</Text>
-                    <Text className="text-xs text-gray-600">Tap the save button to instantly save your draft</Text>
-                  </View>
-                </View>
-
-                <View className="flex-row items-start">
-                  <Ionicons name="document-text" size={16} color="#f59e0b" style={{ marginRight: 11, marginTop: 2 }} />
-                  <View className="flex-1">
-                    <Text className="text-sm font-medium text-gray-900">Load Drafts</Text>
-                    <Text className="text-xs text-gray-600">Access saved drafts from the drafts button in header</Text>
+                    <Text className="text-sm font-medium text-gray-900">
+                      Auto-Save Active
+                    </Text>
+                    <Text className="text-xs text-gray-600">
+                      Your message is automatically saved every 2 seconds
+                    </Text>
                   </View>
                 </View>
 
                 <View className="flex-row items-start">
-                  <Ionicons name="shield-checkmark" size={16} color="#dc2626" style={{ marginRight: 11, marginTop: 2 }} />
+                  <Ionicons
+                    name="save"
+                    size={16}
+                    color="#7c3aed"
+                    style={{ marginRight: 11, marginTop: 2 }}
+                  />
                   <View className="flex-1">
-                    <Text className="text-sm font-medium text-gray-900">Data Protection</Text>
-                    <Text className="text-xs text-gray-600">Drafts are saved locally and sync when online</Text>
+                    <Text className="text-sm font-medium text-gray-900">
+                      Manual Save
+                    </Text>
+                    <Text className="text-xs text-gray-600">
+                      Tap the save button to instantly save your draft
+                    </Text>
+                  </View>
+                </View>
+
+                <View className="flex-row items-start">
+                  <Ionicons
+                    name="document-text"
+                    size={16}
+                    color="#f59e0b"
+                    style={{ marginRight: 11, marginTop: 2 }}
+                  />
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-gray-900">
+                      Load Drafts
+                    </Text>
+                    <Text className="text-xs text-gray-600">
+                      Access saved drafts from the drafts button in header
+                    </Text>
+                  </View>
+                </View>
+
+                <View className="flex-row items-start">
+                  <Ionicons
+                    name="shield-checkmark"
+                    size={16}
+                    color="#dc2626"
+                    style={{ marginRight: 11, marginTop: 2 }}
+                  />
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-gray-900">
+                      Data Protection
+                    </Text>
+                    <Text className="text-xs text-gray-600">
+                      Drafts are saved locally and sync when online
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -590,7 +739,9 @@ export default function ComposeScreen() {
                 onPress={() => router.push("/drafts")}
                 className="mt-4 bg-purple-600 rounded-lg py-2 items-center"
               >
-                <Text className="text-white font-medium text-sm">View All Drafts</Text>
+                <Text className="text-white font-medium text-sm">
+                  View All Drafts
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -600,7 +751,9 @@ export default function ComposeScreen() {
         <View className="px-6 pb-8">
           <TouchableOpacity
             onPress={handleSendMessage}
-            disabled={isLoading || selectedContacts.length === 0 || !message.trim()}
+            disabled={
+              isLoading || selectedContacts.length === 0 || !message.trim()
+            }
             className="mb-4"
           >
             <LinearGradient
@@ -613,12 +766,16 @@ export default function ComposeScreen() {
               end={{ x: 1, y: 0 }}
               className="rounded-xl py-4 items-center"
             >
-              <Text className={`font-semibold text-base ${
-                selectedContacts.length > 0 && message.trim() && !isLoading
-                  ? 'text-white'
-                  : 'text-gray-500'
-              }`}>
-                {isLoading ? "Sending..." : `Send to ${selectedContacts.length} recipient${selectedContacts.length !== 1 ? 's' : ''}`}
+              <Text
+                className={`font-semibold text-base ${
+                  selectedContacts.length > 0 && message.trim() && !isLoading
+                    ? "text-white"
+                    : "text-gray-500"
+                }`}
+              >
+                {isLoading
+                  ? "Sending..."
+                  : `Send to ${selectedContacts.length} recipient${selectedContacts.length !== 1 ? "s" : ""}`}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -626,7 +783,9 @@ export default function ComposeScreen() {
           {/* Cost Breakdown */}
           {selectedContacts.length > 0 && message.trim() && (
             <View className="bg-gray-50 rounded-lg p-4">
-              <Text className="text-sm font-medium text-gray-900 mb-2">Cost Breakdown</Text>
+              <Text className="text-sm font-medium text-gray-900 mb-2">
+                Cost Breakdown
+              </Text>
               <View className="flex-row justify-between text-sm">
                 <Text className="text-gray-600">Recipients:</Text>
                 <Text className="text-gray-900">{selectedContacts.length}</Text>
@@ -637,11 +796,15 @@ export default function ComposeScreen() {
               </View>
               <View className="flex-row justify-between text-sm mt-1">
                 <Text className="text-gray-600">Rate per SMS:</Text>
-                <Text className="text-gray-900">{SMS_COST_PER_MESSAGE} RWF</Text>
+                <Text className="text-gray-900">
+                  {SMS_COST_PER_MESSAGE} RWF
+                </Text>
               </View>
               <View className="border-t border-gray-300 mt-2 pt-2 flex-row justify-between">
                 <Text className="font-medium text-gray-900">Total Cost:</Text>
-                <Text className="font-bold text-purple-600">{totalCost} RWF</Text>
+                <Text className="font-bold text-purple-600">
+                  {totalCost} RWF
+                </Text>
               </View>
             </View>
           )}
@@ -655,18 +818,20 @@ export default function ComposeScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowContactModal(false)}
       >
-        <View style={{ flex: 1, backgroundColor: 'white' }}>
+        <View style={{ flex: 1, backgroundColor: "white" }}>
           {/* Modal Header */}
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingHorizontal: 24,
-            paddingVertical: 16,
-            backgroundColor: 'white',
-            borderBottomWidth: 1,
-            borderBottomColor: '#e5e7eb',
-          }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 24,
+              paddingVertical: 16,
+              backgroundColor: "white",
+              borderBottomWidth: 1,
+              borderBottomColor: "#e5e7eb",
+            }}
+          >
             <TouchableOpacity
               onPress={() => setShowContactModal(false)}
               style={{ padding: 8 }}
@@ -674,20 +839,26 @@ export default function ComposeScreen() {
             >
               <Ionicons name="close" size={24} color="#374151" />
             </TouchableOpacity>
-            <Text style={{
-              fontSize: 20,
-              fontWeight: 'bold',
-              color: '#111827',
-            }}>Select Contacts</Text>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "bold",
+                color: "#111827",
+              }}
+            >
+              Select Contacts
+            </Text>
             <TouchableOpacity
               onPress={() => setShowContactModal(false)}
               style={{ padding: 8 }}
             >
-              <Text style={{
-                color: '#2563eb',
-                fontWeight: '500',
-                fontSize: 16,
-              }}>
+              <Text
+                style={{
+                  color: "#2563eb",
+                  fontWeight: "500",
+                  fontSize: 16,
+                }}
+              >
                 Done ({selectedContacts.length})
               </Text>
             </TouchableOpacity>
@@ -698,49 +869,75 @@ export default function ComposeScreen() {
             data={availableContacts}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
-              const isSelected = selectedContacts.some(c => c.id === item.id);
+              const isSelected = selectedContacts.some((c) => c.id === item.id);
               return (
                 <TouchableOpacity
                   onPress={() => toggleContactSelection(item)}
                   style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
+                    flexDirection: "row",
+                    alignItems: "center",
                     paddingHorizontal: 24,
                     paddingVertical: 16,
-                    backgroundColor: 'white',
+                    backgroundColor: "white",
                     borderBottomWidth: 1,
-                    borderBottomColor: '#f3f4f6',
+                    borderBottomColor: "#f3f4f6",
                   }}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                    <View style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: '#3b82f6',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      marginRight: 12,
-                    }}>
-                      <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      flex: 1,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: "#3b82f6",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        marginRight: 12,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "white",
+                          fontWeight: "bold",
+                          fontSize: 16,
+                        }}
+                      >
                         {item.name.charAt(0).toUpperCase()}
                       </Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 18, fontWeight: '500', color: '#111827' }}>{item.name}</Text>
-                      <Text style={{ color: '#6b7280', fontSize: 14 }}>{item.phone}</Text>
+                      <Text
+                        style={{
+                          fontSize: 18,
+                          fontWeight: "500",
+                          color: "#111827",
+                        }}
+                      >
+                        {item.name}
+                      </Text>
+                      <Text style={{ color: "#6b7280", fontSize: 14 }}>
+                        {item.phone}
+                      </Text>
                     </View>
                   </View>
-                  <View style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: isSelected ? '#2563eb' : 'transparent',
-                    borderColor: isSelected ? '#2563eb' : '#d1d5db',
-                    borderWidth: 2,
-                  }}>
+                  <View
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: isSelected ? "#2563eb" : "transparent",
+                      borderColor: isSelected ? "#2563eb" : "#d1d5db",
+                      borderWidth: 2,
+                    }}
+                  >
                     {isSelected && (
                       <Ionicons name="checkmark" size={14} color="#ffffff" />
                     )}
@@ -749,9 +946,16 @@ export default function ComposeScreen() {
               );
             }}
             ListEmptyComponent={
-              <View style={{ padding: 24, alignItems: 'center' }}>
+              <View style={{ padding: 24, alignItems: "center" }}>
                 <Ionicons name="people" size={48} color="#d1d5db" />
-                <Text style={{ fontSize: 16, color: '#6b7280', marginTop: 12, textAlign: 'center' }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    color: "#6b7280",
+                    marginTop: 12,
+                    textAlign: "center",
+                  }}
+                >
                   No contacts available. Import contacts first.
                 </Text>
               </View>
@@ -785,23 +989,34 @@ export default function ComposeScreen() {
               </TouchableOpacity>
 
               <View className="flex-1 items-center">
-                <Text className="text-xl font-bold text-white">Complete Payment</Text>
-                <Text className="text-white/80 text-sm">Secure SMS delivery</Text>
+                <Text className="text-xl font-bold text-white">
+                  Complete Payment
+                </Text>
+                <Text className="text-white/80 text-sm">
+                  Secure SMS delivery
+                </Text>
               </View>
 
               <View className="w-10" />
             </View>
           </LinearGradient>
 
-          <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
+          <ScrollView
+            className="flex-1 px-6 pt-6"
+            showsVerticalScrollIndicator={false}
+          >
             {/* Order Summary */}
             <View className="bg-gray-50 rounded-xl p-4 mb-6">
-              <Text className="text-lg font-bold text-gray-900 mb-4">Order Summary</Text>
+              <Text className="text-lg font-bold text-gray-900 mb-4">
+                Order Summary
+              </Text>
 
               <View className="space-y-3">
                 <View className="flex-row justify-between">
                   <Text className="text-gray-600">Recipients</Text>
-                  <Text className="text-gray-900 font-medium">{selectedContacts.length}</Text>
+                  <Text className="text-gray-900 font-medium">
+                    {selectedContacts.length}
+                  </Text>
                 </View>
 
                 <View className="flex-row justify-between">
@@ -811,13 +1026,19 @@ export default function ComposeScreen() {
 
                 <View className="flex-row justify-between">
                   <Text className="text-gray-600">Rate per SMS</Text>
-                  <Text className="text-gray-900 font-medium">{SMS_COST_PER_MESSAGE} RWF</Text>
+                  <Text className="text-gray-900 font-medium">
+                    {SMS_COST_PER_MESSAGE} RWF
+                  </Text>
                 </View>
 
                 <View className="border-t border-gray-300 pt-3 mt-3">
                   <View className="flex-row justify-between">
-                    <Text className="text-lg font-bold text-gray-900">Total Amount</Text>
-                    <Text className="text-lg font-bold text-purple-600">{totalCost} RWF</Text>
+                    <Text className="text-lg font-bold text-gray-900">
+                      Total Amount
+                    </Text>
+                    <Text className="text-lg font-bold text-purple-600">
+                      {totalCost} RWF
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -825,55 +1046,69 @@ export default function ComposeScreen() {
 
             {/* Payment Method Selection */}
             <View className="mb-6">
-              <Text className="text-lg font-bold text-gray-900 mb-4">Payment Method</Text>
+              <Text className="text-lg font-bold text-gray-900 mb-4">
+                Payment Method
+              </Text>
 
               <TouchableOpacity
-                onPress={() => setPaymentMethod('mobile')}
+                onPress={() => setPaymentMethod("mobile")}
                 className={`rounded-xl p-4 border-2 mb-3 ${
-                  paymentMethod === 'mobile'
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-200 bg-white'
+                  paymentMethod === "mobile"
+                    ? "border-purple-500 bg-purple-50"
+                    : "border-gray-200 bg-white"
                 }`}
               >
                 <View className="flex-row items-center">
-                  <View className={`w-5 h-5 rounded-full border-2 mr-3 ${
-                    paymentMethod === 'mobile'
-                      ? 'border-purple-500 bg-purple-500'
-                      : 'border-gray-300'
-                  }`}>
-                    {paymentMethod === 'mobile' && (
+                  <View
+                    className={`w-5 h-5 rounded-full border-2 mr-3 ${
+                      paymentMethod === "mobile"
+                        ? "border-purple-500 bg-purple-500"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    {paymentMethod === "mobile" && (
                       <Ionicons name="checkmark" size={12} color="#ffffff" />
                     )}
                   </View>
                   <View className="flex-1">
-                    <Text className="font-semibold text-gray-900">Mobile Money</Text>
-                    <Text className="text-sm text-gray-600">MTN Mobile Money, Airtel Money</Text>
+                    <Text className="font-semibold text-gray-900">
+                      Mobile Money
+                    </Text>
+                    <Text className="text-sm text-gray-600">
+                      MTN Mobile Money, Airtel Money
+                    </Text>
                   </View>
                   <Ionicons name="phone-portrait" size={24} color="#6b7280" />
                 </View>
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => setPaymentMethod('card')}
+                onPress={() => setPaymentMethod("card")}
                 className={`rounded-xl p-4 border-2 ${
-                  paymentMethod === 'card'
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-200 bg-white'
+                  paymentMethod === "card"
+                    ? "border-purple-500 bg-purple-50"
+                    : "border-gray-200 bg-white"
                 }`}
               >
                 <View className="flex-row items-center">
-                  <View className={`w-5 h-5 rounded-full border-2 mr-3 ${
-                    paymentMethod === 'card'
-                      ? 'border-purple-500 bg-purple-500'
-                      : 'border-gray-300'
-                  }`}>
-                    {paymentMethod === 'card' && (
+                  <View
+                    className={`w-5 h-5 rounded-full border-2 mr-3 ${
+                      paymentMethod === "card"
+                        ? "border-purple-500 bg-purple-500"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    {paymentMethod === "card" && (
                       <Ionicons name="checkmark" size={12} color="#ffffff" />
                     )}
                   </View>
                   <View className="flex-1">
-                    <Text className="font-semibold text-gray-900">Credit/Debit Card</Text>
-                    <Text className="text-sm text-gray-600">Visa, Mastercard, American Express</Text>
+                    <Text className="font-semibold text-gray-900">
+                      Credit/Debit Card
+                    </Text>
+                    <Text className="text-sm text-gray-600">
+                      Visa, Mastercard, American Express
+                    </Text>
                   </View>
                   <Ionicons name="card" size={24} color="#6b7280" />
                 </View>
@@ -885,9 +1120,12 @@ export default function ComposeScreen() {
               <View className="flex-row items-start">
                 <Ionicons name="shield-checkmark" size={20} color="#16a34a" />
                 <View className="ml-3 flex-1">
-                  <Text className="font-semibold text-green-900 mb-1">Secure Payment</Text>
+                  <Text className="font-semibold text-green-900 mb-1">
+                    Secure Payment
+                  </Text>
                   <Text className="text-sm text-green-700">
-                    Your payment information is encrypted and secure. SMS delivery is guaranteed upon successful payment.
+                    Your payment information is encrypted and secure. SMS
+                    delivery is guaranteed upon successful payment.
                   </Text>
                 </View>
               </View>
@@ -900,21 +1138,30 @@ export default function ComposeScreen() {
               className="mb-8"
             >
               <LinearGradient
-                colors={isProcessingPayment ? ["#d1d5db", "#9ca3af"] : ["#7c3aed", "#a855f7"]}
+                colors={
+                  isProcessingPayment
+                    ? ["#d1d5db", "#9ca3af"]
+                    : ["#7c3aed", "#a855f7"]
+                }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 className="rounded-xl py-4 items-center"
               >
-                <Text className={`font-bold text-lg ${
-                  isProcessingPayment ? 'text-gray-500' : 'text-white'
-                }`}>
-                  {isProcessingPayment ? "Processing Payment..." : `Pay ${totalCost} RWF & Send`}
+                <Text
+                  className={`font-bold text-lg ${
+                    isProcessingPayment ? "text-gray-500" : "text-white"
+                  }`}
+                >
+                  {isProcessingPayment
+                    ? "Processing Payment..."
+                    : `Pay ${totalCost} RWF & Send`}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
 
             <Text className="text-xs text-gray-500 text-center mb-4">
-              By proceeding, you agree to our terms of service and payment will be processed securely.
+              By proceeding, you agree to our terms of service and payment will
+              be processed securely.
             </Text>
           </ScrollView>
         </View>

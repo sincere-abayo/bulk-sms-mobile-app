@@ -43,12 +43,65 @@ export default function ContactsScreen() {
   const [importableContacts, setImportableContacts] = useState<
     ImportableContact[]
   >([]);
+  const [filteredImportableContacts, setFilteredImportableContacts] = useState<
+    ImportableContact[]
+  >([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [newContact, setNewContact] = useState({ name: "", phone: "" });
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     loadContacts();
   }, []);
+
+  // Debug effect to track contacts state
+  useEffect(() => {
+    console.log(`Contacts state updated: ${contacts.length} contacts`);
+    if (contacts.length > 0) {
+      console.log("First 3 contacts:", contacts.slice(0, 3));
+    }
+  }, [contacts]);
+
+  // Force refresh from database only (for debugging)
+  const forceRefreshFromDatabase = async () => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (token) {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const userId = payload.userId;
+
+        const cachedContacts = await databaseService.getCachedContacts(userId);
+        const formattedContacts = cachedContacts.map((contact) => ({
+          id: contact.id,
+          name: contact.name,
+          phone: contact.phone,
+          source: contact.source,
+          createdAt: contact.createdAt,
+        }));
+
+        setContacts(formattedContacts);
+        console.log(
+          `Force refreshed: ${formattedContacts.length} contacts from database`
+        );
+      }
+    } catch (error) {
+      console.error("Force refresh error:", error);
+    }
+  };
+
+  // Filter importable contacts based on search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredImportableContacts(importableContacts);
+    } else {
+      const filtered = importableContacts.filter(
+        (contact) =>
+          contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          contact.phone.includes(searchQuery)
+      );
+      setFilteredImportableContacts(filtered);
+    }
+  }, [searchQuery, importableContacts]);
 
   // Sync when coming back online - only if we have unsynced data
   useEffect(() => {
@@ -92,20 +145,17 @@ export default function ContactsScreen() {
 
     setIsSyncing(true);
     try {
-      // Get server contacts
-      const response = await authService.getContacts();
-      const serverContacts = response.contacts || [];
-
-      // Get local cached contacts
+      // Get local cached contacts first
       const cachedContacts = await databaseService.getCachedContacts(userId);
 
       // Find contacts that exist locally but not on server (added offline)
-      // Look for contacts that haven't been synced yet
       const localOnlyContacts = cachedContacts.filter(
-        (cached) => !cached.lastSynced // Never synced - this is the key indicator
+        (cached) => !cached.lastSynced && !cached.serverId
       );
 
-      console.log(`Found ${localOnlyContacts.length} contacts to sync`);
+      console.log(
+        `Found ${localOnlyContacts.length} local contacts to sync to server`
+      );
 
       // Sync local-only contacts to server
       for (const localContact of localOnlyContacts) {
@@ -116,7 +166,7 @@ export default function ContactsScreen() {
             source: localContact.source,
           });
 
-          // Update the local contact with the server ID
+          // Update the local contact with the server ID and mark as synced
           await databaseService.updateContactServerId(
             userId,
             localContact.id,
@@ -132,51 +182,44 @@ export default function ContactsScreen() {
         }
       }
 
-      // After syncing local contacts, get updated server contacts
-      const updatedResponse = await authService.getContacts();
-      const updatedServerContacts = updatedResponse.contacts || [];
+      // Get server contacts
+      const response = await authService.getContacts();
+      const serverContacts = response.contacts || [];
 
-      // Get remaining unsynced contacts (those that failed to sync)
-      const remainingCachedContacts =
-        await databaseService.getCachedContacts(userId);
-      const remainingUnsyncedContacts = remainingCachedContacts.filter(
-        (cached) => !cached.lastSynced // Still not synced (failed to sync above)
-      );
-
-      // Merge server contacts with remaining unsynced contacts
-      const allContacts = [
-        ...updatedServerContacts,
-        ...remainingUnsyncedContacts.map((contact) => ({
-          id: contact.id,
-          name: contact.name,
-          phone: contact.phone,
-          source: contact.source,
-          createdAt: contact.createdAt,
-        })),
-      ];
-
-      // Update local cache with merged data (preserving unsynced contacts)
-      const contactsToCache = allContacts.map((contact: any) => ({
+      // Merge server contacts with local database using the new merge method
+      const serverContactsToCache = serverContacts.map((contact: any) => ({
         id: contact.id,
         userId,
         name: contact.name,
         phone: contact.phone,
         source: contact.source,
         serverId: contact.id,
-        lastSynced:
-          contact.id.startsWith("local-") ||
-          contact.id.startsWith("import-offline-")
-            ? undefined // Keep as unsynced for local contacts
-            : new Date().toISOString(), // Mark server contacts as synced
+        lastSynced: new Date().toISOString(),
         createdAt: contact.createdAt,
         updatedAt: contact.updatedAt || new Date().toISOString(),
       }));
 
-      await databaseService.saveContacts(userId, contactsToCache);
+      // Use the new merge method to preserve local contacts
+      await databaseService.mergeServerContacts(userId, serverContactsToCache);
 
-      console.log("Contacts synced successfully");
-      return allContacts;
+      // Get all contacts from database (server + local)
+      const allContacts = await databaseService.getCachedContacts(userId);
+
+      // Convert to the format expected by the UI
+      const formattedContacts = allContacts.map((contact) => ({
+        id: contact.id,
+        name: contact.name,
+        phone: contact.phone,
+        source: contact.source,
+        createdAt: contact.createdAt,
+      }));
+
+      console.log(
+        `Sync completed. Total contacts: ${formattedContacts.length}`
+      );
+      return formattedContacts;
     } catch (error) {
+      console.error("Sync error:", error);
       throw error;
     } finally {
       setIsSyncing(false);
@@ -194,18 +237,35 @@ export default function ContactsScreen() {
       const payload = JSON.parse(atob(token.split(".")[1]));
       const userId = payload.userId;
 
-      // Load cached contacts first for immediate display
+      // Always load cached contacts first for immediate display
       const cachedContacts = await databaseService.getCachedContacts(userId);
-      if (cachedContacts.length > 0) {
-        setContacts(cachedContacts);
-        setLoading(false); // Show cached data immediately
-      }
+      console.log(
+        `Loaded ${cachedContacts.length} contacts from local database`
+      );
 
-      // Try to sync with server if online
+      // Debug database state
+      await databaseService.debugDatabaseState(userId);
+
+      // Convert cached contacts to UI format
+      const formattedCachedContacts = cachedContacts.map((contact) => ({
+        id: contact.id,
+        name: contact.name,
+        phone: contact.phone,
+        source: contact.source,
+        createdAt: contact.createdAt,
+      }));
+
+      setContacts(formattedCachedContacts);
+      setLoading(false); // Show cached data immediately
+
+      // Try to sync with server if online (background sync)
       if (isConnected) {
         try {
           const syncedContacts = await syncContactsWithServer(userId);
           if (syncedContacts) {
+            console.log(
+              `Sync completed, updating UI with ${syncedContacts.length} contacts`
+            );
             setContacts(syncedContacts); // Update with synced data
           }
         } catch (syncError: any) {
@@ -214,16 +274,37 @@ export default function ContactsScreen() {
             console.log("Offline: Using cached contacts only");
           } else {
             console.error("Error syncing contacts:", syncError);
-            // Keep cached data if sync fails
+            // Keep cached data if sync fails - don't show error to user
+            console.log("Sync failed, keeping cached contacts");
           }
         }
       } else {
-        showOfflineWarning();
+        if (formattedCachedContacts.length === 0) {
+          showOfflineWarning();
+        }
         console.log("Offline: Using cached contacts only");
       }
     } catch (error) {
       console.error("Error loading contacts:", error);
-      if (contacts.length === 0) {
+      // Try to load from database even if there's an error
+      try {
+        const token = await AsyncStorage.getItem("authToken");
+        if (token) {
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          const userId = payload.userId;
+          const cachedContacts =
+            await databaseService.getCachedContacts(userId);
+          const formattedContacts = cachedContacts.map((contact) => ({
+            id: contact.id,
+            name: contact.name,
+            phone: contact.phone,
+            source: contact.source,
+            createdAt: contact.createdAt,
+          }));
+          setContacts(formattedContacts);
+        }
+      } catch (fallbackError) {
+        console.error("Fallback load also failed:", fallbackError);
         Alert.alert("Error", "Failed to load contacts");
       }
     } finally {
@@ -237,20 +318,25 @@ export default function ContactsScreen() {
       return;
     }
 
+    const token = await AsyncStorage.getItem("authToken");
+    if (!token) {
+      Alert.alert("Error", "Authentication required");
+      return;
+    }
+
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const userId = payload.userId;
+
     try {
-      // Create contact on server
-      const response = await authService.createContact({
-        name: newContact.name.trim(),
-        phone: newContact.phone.trim(),
-        source: "manual",
-      });
+      if (isConnected) {
+        // Try to create contact on server first
+        const response = await authService.createContact({
+          name: newContact.name.trim(),
+          phone: newContact.phone.trim(),
+          source: "manual",
+        });
 
-      // Cache locally
-      const token = await AsyncStorage.getItem("authToken");
-      if (token) {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        const userId = payload.userId;
-
+        // Save to local database with server ID
         await databaseService.addCachedContact({
           id: response.contact.id,
           userId,
@@ -262,47 +348,46 @@ export default function ContactsScreen() {
           createdAt: response.contact.createdAt,
           updatedAt: response.contact.updatedAt,
         });
-      }
 
-      setNewContact({ name: "", phone: "" });
-      setShowAddModal(false);
-      loadContacts(); // Refresh the list
-      Alert.alert("Success", "Contact added successfully");
+        Alert.alert("Success", "Contact added successfully");
+      } else {
+        throw new Error("OFFLINE");
+      }
     } catch (error: any) {
-      if (error.message === "OFFLINE") {
+      if (error.message === "OFFLINE" || !isConnected) {
         showOfflineWarning();
 
         // Save contact locally when offline
-        const token = await AsyncStorage.getItem("authToken");
-        if (token) {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          const userId = payload.userId;
-
-          const localContactId = `local-${Date.now()}`;
-          await databaseService.addCachedContact({
-            id: localContactId,
-            userId,
-            name: newContact.name.trim(),
-            phone: newContact.phone.trim(),
-            source: "manual",
-            serverId: undefined, // Will be set after sync
-            lastSynced: undefined, // Mark as not synced
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-        }
+        const localContactId = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        await databaseService.addCachedContact({
+          id: localContactId,
+          userId,
+          name: newContact.name.trim(),
+          phone: newContact.phone.trim(),
+          source: "manual",
+          serverId: undefined, // Will be set after sync
+          lastSynced: undefined, // Mark as not synced
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
 
         Alert.alert("Offline", "Contact saved locally. Will sync when online.");
-        setNewContact({ name: "", phone: "" });
-        setShowAddModal(false);
-        loadContacts(); // Refresh to show the locally saved contact
       } else {
+        console.error("Error adding contact:", error);
         Alert.alert(
           "Error",
           error.response?.data?.error || "Failed to add contact"
         );
+        return; // Don't proceed if there's a real error
       }
     }
+
+    // Clear form and close modal
+    setNewContact({ name: "", phone: "" });
+    setShowAddModal(false);
+
+    // Refresh the list to show the new contact
+    loadContacts();
   };
 
   const handleDeleteContact = async (
@@ -436,6 +521,8 @@ export default function ContactsScreen() {
 
       // Show selective import modal
       setImportableContacts(validContacts);
+      setFilteredImportableContacts(validContacts);
+      setSearchQuery(""); // Reset search when opening modal
       setShowImportModal(true);
     } catch (error) {
       console.error("Error accessing contacts:", error);
@@ -455,9 +542,23 @@ export default function ContactsScreen() {
   };
 
   const toggleSelectAll = () => {
-    const allSelected = importableContacts.every((contact) => contact.selected);
+    // Check if all filtered contacts are selected
+    const allFilteredSelected = filteredImportableContacts.every(
+      (contact) => contact.selected
+    );
+
+    // Toggle selection for all filtered contacts
     setImportableContacts((prev) =>
-      prev.map((contact) => ({ ...contact, selected: !allSelected }))
+      prev.map((contact) => {
+        // Only toggle if this contact is in the filtered list
+        const isInFiltered = filteredImportableContacts.some(
+          (f) => f.id === contact.id
+        );
+        if (isInFiltered) {
+          return { ...contact, selected: !allFilteredSelected };
+        }
+        return contact;
+      })
     );
   };
 
@@ -477,74 +578,79 @@ export default function ContactsScreen() {
     setShowImportModal(false);
     setImporting(true);
 
+    const token = await AsyncStorage.getItem("authToken");
+    if (!token) {
+      Alert.alert("Error", "Authentication required");
+      setImporting(false);
+      return;
+    }
+
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const userId = payload.userId;
+
     try {
-      const contactsToImport = selectedContacts.map(({ name, phone }) => ({
-        name,
-        phone,
-        source: "phonebook" as const,
-      }));
-
-      const response = await authService.bulkCreateContacts(contactsToImport);
-
-      // Cache imported contacts locally
-      const token = await AsyncStorage.getItem("authToken");
-      if (token && response.contacts) {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        const userId = payload.userId;
-
-        const contactsToCache = response.contacts.map((contact: any) => ({
-          id: contact.id,
-          userId,
-          name: contact.name,
-          phone: contact.phone,
-          source: contact.source,
-          serverId: contact.id,
-          lastSynced: new Date().toISOString(),
-          createdAt: contact.createdAt,
-          updatedAt: contact.updatedAt,
+      if (isConnected) {
+        // Try to import to server first
+        const contactsToImport = selectedContacts.map(({ name, phone }) => ({
+          name,
+          phone,
+          source: "phonebook" as const,
         }));
 
-        await databaseService.saveContacts(userId, contactsToCache);
-      }
+        const response = await authService.bulkCreateContacts(contactsToImport);
 
-      loadContacts(); // Refresh the list
-      Alert.alert(
-        "Success",
-        `Successfully imported ${selectedContacts.length} contact${selectedContacts.length > 1 ? "s" : ""}!`
-      );
-    } catch (error: any) {
-      if (error.message === "OFFLINE") {
-        showOfflineWarning();
-
-        // Save contacts locally when offline - APPEND, don't replace
-        const token = await AsyncStorage.getItem("authToken");
-        if (token) {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          const userId = payload.userId;
-
-          // Add each contact individually to avoid overwriting existing ones
-          for (let i = 0; i < selectedContacts.length; i++) {
-            const contact = selectedContacts[i];
+        // Save imported contacts to local database
+        if (response.contacts) {
+          for (const contact of response.contacts) {
             await databaseService.addCachedContact({
-              id: `import-offline-${Date.now()}-${i}`,
+              id: contact.id,
               userId,
               name: contact.name,
               phone: contact.phone,
-              source: "phonebook",
-              serverId: undefined, // Will be set after sync
-              lastSynced: undefined, // Mark as not synced
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              source: contact.source,
+              serverId: contact.id,
+              lastSynced: new Date().toISOString(),
+              createdAt: contact.createdAt,
+              updatedAt: contact.updatedAt,
             });
           }
+        }
+
+        Alert.alert(
+          "Success",
+          `Successfully imported ${selectedContacts.length} contact${selectedContacts.length > 1 ? "s" : ""}!`
+        );
+      } else {
+        throw new Error("OFFLINE");
+      }
+    } catch (error: any) {
+      if (error.message === "OFFLINE" || !isConnected) {
+        showOfflineWarning();
+
+        // Save contacts locally when offline - Add each contact individually
+        for (let i = 0; i < selectedContacts.length; i++) {
+          const contact = selectedContacts[i];
+          const localId = `import-offline-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`;
+
+          await databaseService.addCachedContact({
+            id: localId,
+            userId,
+            name: contact.name,
+            phone: contact.phone,
+            source: "phonebook",
+            serverId: undefined, // Will be set after sync
+            lastSynced: undefined, // Mark as not synced
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
         }
 
         Alert.alert(
           "Offline Import",
           `Contacts saved locally. ${selectedContacts.length} contact${selectedContacts.length > 1 ? "s" : ""} will be synced when online.`
         );
-        loadContacts();
       } else {
+        console.error("Import error:", error);
         Alert.alert(
           "Import Failed",
           error.response?.data?.error || "Failed to import contacts"
@@ -552,6 +658,8 @@ export default function ContactsScreen() {
       }
     } finally {
       setImporting(false);
+      // Always refresh the list to show new contacts
+      loadContacts();
     }
   };
 
@@ -777,7 +885,10 @@ export default function ContactsScreen() {
         visible={showImportModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowImportModal(false)}
+        onRequestClose={() => {
+          setSearchQuery("");
+          setShowImportModal(false);
+        }}
       >
         <View className="flex-1 bg-gray-50">
           {/* Header */}
@@ -794,7 +905,10 @@ export default function ContactsScreen() {
             }}
           >
             <TouchableOpacity
-              onPress={() => setShowImportModal(false)}
+              onPress={() => {
+                setSearchQuery("");
+                setShowImportModal(false);
+              }}
               style={{ padding: 8 }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -817,11 +931,57 @@ export default function ContactsScreen() {
                   fontSize: 16,
                 }}
               >
-                {importableContacts.every((c) => c.selected)
+                {filteredImportableContacts.every((c) => c.selected)
                   ? "Deselect All"
                   : "Select All"}
               </Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Search Input */}
+          <View
+            style={{
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              backgroundColor: "white",
+              borderBottomWidth: 1,
+              borderBottomColor: "#e5e7eb",
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#f3f4f6",
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+            >
+              <Ionicons name="search" size={20} color="#6b7280" />
+              <TextInput
+                style={{
+                  flex: 1,
+                  marginLeft: 12,
+                  fontSize: 16,
+                  color: "#111827",
+                }}
+                placeholder="Search contacts..."
+                placeholderTextColor="#9ca3af"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery("")}
+                  style={{ padding: 4 }}
+                >
+                  <Ionicons name="close-circle" size={20} color="#6b7280" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Stats */}
@@ -842,14 +1002,20 @@ export default function ContactsScreen() {
                 fontWeight: "500",
               }}
             >
-              {importableContacts.filter((c) => c.selected).length} of{" "}
-              {importableContacts.length} contacts selected
+              {importableContacts.filter((c) => c.selected).length} selected
+              {searchQuery.trim() && (
+                <Text style={{ color: "#6b7280" }}>
+                  {" "}
+                  • {filteredImportableContacts.length} of{" "}
+                  {importableContacts.length} shown
+                </Text>
+              )}
             </Text>
           </View>
 
           {/* Contact List */}
           <FlatList
-            data={importableContacts}
+            data={filteredImportableContacts}
             keyExtractor={(item) => item.id}
             className="flex-1"
             renderItem={({ item }) => (
@@ -925,6 +1091,60 @@ export default function ContactsScreen() {
                   )}
                 </View>
               </TouchableOpacity>
+            )}
+            ListEmptyComponent={() => (
+              <View
+                style={{
+                  flex: 1,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  paddingVertical: 60,
+                  paddingHorizontal: 24,
+                }}
+              >
+                <Ionicons name="search" size={48} color="#d1d5db" />
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: "500",
+                    color: "#6b7280",
+                    textAlign: "center",
+                    marginTop: 16,
+                    marginBottom: 8,
+                  }}
+                >
+                  {searchQuery.trim()
+                    ? "No contacts found"
+                    : "No contacts available"}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: "#9ca3af",
+                    textAlign: "center",
+                  }}
+                >
+                  {searchQuery.trim()
+                    ? `No contacts match "${searchQuery}"`
+                    : "No valid contacts found on your device"}
+                </Text>
+                {searchQuery.trim() && (
+                  <TouchableOpacity
+                    onPress={() => setSearchQuery("")}
+                    style={{
+                      marginTop: 16,
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                      backgroundColor: "#3b82f6",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Text style={{ color: "white", fontWeight: "500" }}>
+                      Clear Search
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
           />
 

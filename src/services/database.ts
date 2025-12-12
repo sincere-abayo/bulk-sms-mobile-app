@@ -109,10 +109,7 @@ class DatabaseService {
   // Cached Contacts Methods
   async saveContacts(userId: string, contacts: CachedContact[]): Promise<void> {
     try {
-      // Clear existing contacts for this user
-      await this.db.runAsync('DELETE FROM cached_contacts WHERE userId = ?', [userId]);
-
-      // Insert new contacts
+      // Use INSERT OR REPLACE to merge contacts instead of clearing all
       for (const contact of contacts) {
         await this.db.runAsync(`
           INSERT OR REPLACE INTO cached_contacts
@@ -132,6 +129,36 @@ class DatabaseService {
       }
     } catch (error) {
       console.error('Error saving contacts:', error);
+      throw error;
+    }
+  }
+
+  // New method to safely merge server contacts with local ones
+  async mergeServerContacts(userId: string, serverContacts: CachedContact[]): Promise<void> {
+    try {
+      // Only update contacts that exist on server (have serverId)
+      // This preserves local-only contacts that haven't been synced yet
+      for (const contact of serverContacts) {
+        if (contact.serverId) {
+          await this.db.runAsync(`
+            INSERT OR REPLACE INTO cached_contacts
+            (id, userId, name, phone, source, serverId, lastSynced, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            contact.serverId, // Use serverId as the local ID for server contacts
+            contact.userId,
+            contact.name,
+            contact.phone,
+            contact.source,
+            contact.serverId,
+            contact.lastSynced || new Date().toISOString(),
+            contact.createdAt,
+            contact.updatedAt
+          ]);
+        }
+      }
+    } catch (error) {
+      console.error('Error merging server contacts:', error);
       throw error;
     }
   }
@@ -323,6 +350,27 @@ class DatabaseService {
     } catch (error) {
       console.error('Error clearing user data:', error);
       throw error;
+    }
+  }
+
+  // Debug method to check database integrity
+  async debugDatabaseState(userId: string): Promise<void> {
+    try {
+      const contacts = await this.getCachedContacts(userId);
+      console.log('=== DATABASE DEBUG ===');
+      console.log(`User ID: ${userId}`);
+      console.log(`Total contacts in DB: ${contacts.length}`);
+      console.log('Contacts:', contacts.map(c => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        source: c.source,
+        serverId: c.serverId,
+        lastSynced: c.lastSynced
+      })));
+      console.log('=== END DEBUG ===');
+    } catch (error) {
+      console.error('Debug error:', error);
     }
   }
 
