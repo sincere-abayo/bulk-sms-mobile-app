@@ -1,9 +1,8 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Use your computer's IP address instead of localhost for mobile testing
-// Replace with your actual IP address
-const API_BASE_URL = 'http://192.168.1.115:4000/api';
+// Production API URL - change this to your deployed backend
+const API_BASE_URL = 'https://bulk-sms-backend-z5f3.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
